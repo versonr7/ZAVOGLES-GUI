@@ -1,0 +1,14 @@
+[package]
+name = "k1-math"
+version = "0.1.0"
+edition = "2021"
+authors = ["versonr7"]
+description = "K1 Math - no_std linear algebra"
+license = "MIT"
+
+[features]
+default = []
+std = []
+
+[dependencies]
+libm = "0.2"
