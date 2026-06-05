@@ -1,0 +1,15 @@
+[package]
+name = "k1-gles"
+version = "0.1.0"
+edition = "2021"
+authors = ["versonr7"]
+description = "K1 GLES - Minimal EGL + OpenGL ES 2.0 wrapper"
+license = "MIT"
+
+[dependencies]
+k1-math = { path = "../k1-math" }
+k1-sys = { path = "../k1-sys" }
+
+[features]
+default = []
+mock = ["k1-sys/mock"]
