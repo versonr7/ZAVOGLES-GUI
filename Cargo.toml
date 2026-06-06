@@ -1,14 +1,21 @@
-[package]
-name = "k1-math"
+[workspace]
+members = [
+    "k1-math",
+    "k1-sys",
+    "k1-gles",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = ["versonr7"]
-description = "K1 Math - no_std linear algebra"
 license = "MIT"
 
-[features]
-default = []
-std = []
-
-[dependencies]
-libm = "0.2"
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+debug = false

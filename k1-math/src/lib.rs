@@ -177,6 +177,15 @@ impl Mat4 {
         let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[3][3];
         if w != 0.0 { Vec2::new(x / w, y / w) } else { Vec2::new(x, y) }
     }
+    pub fn to_array(self) -> [f32; 16] {
+        [
+            self.m[0][0], self.m[0][1], self.m[0][2], self.m[0][3],
+            self.m[1][0], self.m[1][1], self.m[1][2], self.m[1][3],
+            self.m[2][0], self.m[2][1], self.m[2][2], self.m[2][3],
+            self.m[3][0], self.m[3][1], self.m[3][2], self.m[3][3],
+        ]
+    }
+
 }
 
 /// Axis-aligned rectangle - Stack size: 16 bytes

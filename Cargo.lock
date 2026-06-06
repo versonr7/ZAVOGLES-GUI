@@ -3,10 +3,25 @@
 version = 4
 
 [[package]]
+name = "k1-gles"
+version = "0.1.0"
+dependencies = [
+ "k1-math",
+ "k1-sys",
+]
+
+[[package]]
 name = "k1-math"
 version = "0.1.0"
 dependencies = [
  "libm",
+]
+
+[[package]]
+name = "k1-sys"
+version = "0.1.0"
+dependencies = [
+ "k1-math",
 ]
 
 [[package]]
