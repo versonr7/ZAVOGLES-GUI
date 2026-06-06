@@ -14,11 +14,17 @@ jobs:
           targets: aarch64-linux-android
           components: rust-src
       
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          link-to-sdk: true
+      
       - name: Install cargo-apk2
         run: cargo install cargo-apk2
       
       - name: Build Debug APK
-        run: cargo apk2 build -p k1-app -Z build-std=core,alloc,panic_abort
+        run: cargo apk2 build -p k1-app
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
