@@ -15,6 +15,29 @@ k1-math = { path = "../k1-math" }
 k1-sys = { path = "../k1-sys" }
 k1-gles = { path = "../k1-gles" }
 
+[package.metadata.android]
+build_targets = ["aarch64-linux-android"]
+target_sdk_version = 34
+min_sdk_version = 28
+
+# هذا المهم — يولد AndroidManifest.xml صحيح
+[package.metadata.android.application]
+label = "K1 Platform"
+debuggable = true
+
+[[package.metadata.android.application.activity]]
+name = "android.app.NativeActivity"
+label = "K1 Platform"
+exported = true
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.MAIN"]
+categories = ["android.intent.category.LAUNCHER"]
+
+[package.metadata.android.application.activity.meta_data]
+name = "android.app.lib_name"
+value = "k1_app"
+
 [profile.release]
 panic = "abort"
 lto = true
