@@ -1,4 +1,4 @@
-name: Build APK
+name: Build Android APK
 
 on: [push, pull_request]
 
@@ -8,26 +8,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Rust
+      - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
           targets: aarch64-linux-android
           components: rust-src
       
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b
-          link-to-sdk: true
+      - name: Install cargo-apk2
+        run: cargo install cargo-apk2
       
-      - name: Install cargo-apk
-        run: cargo install cargo-apk
-      
-      - name: Build APK
-        run: cargo apk build --release -p k1-app -Z build-std=core,alloc,panic_abort
+      - name: Build Debug APK
+        run: cargo apk2 build -p k1-app -Z build-std=core,alloc,panic_abort
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: k1-apk
-          path: target/release/apk/*.apk
+          name: k1-debug-apk
+          path: target/debug/apk/*.apk
