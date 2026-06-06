@@ -39,7 +39,7 @@ pub const ANDROID_LOG_INFO: c_int = 4;
 pub const ANDROID_LOG_WARN: c_int = 5;
 pub const ANDROID_LOG_ERROR: c_int = 6;
 
-#[cfg(all(target_os = "android", not(feature = "mock")))]
+#[cfg(all(target_os = "android", not(feature = "mock"), not(test)))]
 extern "C" {
     pub fn ANativeWindow_acquire(window: *mut ANativeWindow);
     pub fn ANativeWindow_release(window: *mut ANativeWindow);
@@ -89,7 +89,7 @@ extern "C" {
     pub fn ALooper_wake(looper: *mut ALooper);
 }
 
-#[cfg(any(not(target_os = "android"), feature = "mock"))]
+#[cfg(any(not(target_os = "android"), feature = "mock", test))]
 pub mod mock {
     use super::*;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -144,7 +144,7 @@ pub mod mock {
     pub unsafe fn __android_log_write(_: c_int, _: *const c_char, _: *const c_char) -> c_int { 0 }
 }
 
-#[cfg(any(not(target_os = "android"), feature = "mock"))]
+#[cfg(any(not(target_os = "android"), feature = "mock", test ))]
 use mock::*;
 
 pub struct NativeWindow {

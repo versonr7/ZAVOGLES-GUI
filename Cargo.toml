@@ -3,6 +3,7 @@ members = [
     "k1-math",
     "k1-sys",
     "k1-gles",
+    "k1-app",
 ]
 resolver = "2"
 

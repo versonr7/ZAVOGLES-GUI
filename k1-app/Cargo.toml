@@ -1,0 +1,22 @@
+[package]
+name = "k1-app"
+version = "0.1.0"
+edition = "2021"
+authors = ["versonr7"]
+description = "K1 App - Pure NDK NativeActivity"
+license = "MIT"
+
+[lib]
+name = "k1_app"
+crate-type = ["cdylib"]
+
+[dependencies]
+k1-math = { path = "../k1-math" }
+k1-sys = { path = "../k1-sys" }
+k1-gles = { path = "../k1-gles" }
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+strip = true

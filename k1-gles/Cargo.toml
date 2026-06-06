@@ -3,7 +3,7 @@ name = "k1-gles"
 version = "0.1.0"
 edition = "2021"
 authors = ["versonr7"]
-description = "K1 GLES - Minimal EGL + OpenGL ES 2.0 wrapper"
+description = "K1 GLES - Minimal EGL + OpenGL ES 2.0 wrapper (no_alloc)"
 license = "MIT"
 
 [dependencies]
