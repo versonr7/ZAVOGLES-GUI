@@ -2,10 +2,8 @@
 #![warn(missing_docs)]
 #![allow(non_camel_case_types)]
 
-use core::ffi::{c_void, c_int, c_char, c_float};
+use core::ffi::{c_void, c_int, c_char};
 use k1_math::Vec2;
-
-// ==================== Opaque Types ====================
 
 #[repr(C)]
 pub struct ANativeWindow { _private: [u8; 0] }
@@ -18,8 +16,6 @@ pub struct ALooper { _private: [u8; 0] }
 
 #[repr(C)]
 pub struct AChoreographer { _private: [u8; 0] }
-
-// ==================== Constants ====================
 
 pub const ALOOPER_EVENT_INPUT: c_int = 1 << 0;
 pub const ALOOPER_EVENT_OUTPUT: c_int = 1 << 1;
@@ -43,13 +39,61 @@ pub const ANDROID_LOG_INFO: c_int = 4;
 pub const ANDROID_LOG_WARN: c_int = 5;
 pub const ANDROID_LOG_ERROR: c_int = 6;
 
-// ==================== Mock Implementation ====================
+#[cfg(all(target_os = "android", not(feature = "mock")))]
+extern "C" {
+    pub fn ANativeWindow_acquire(window: *mut ANativeWindow);
+    pub fn ANativeWindow_release(window: *mut ANativeWindow);
+    pub fn ANativeWindow_getWidth(window: *mut ANativeWindow) -> c_int;
+    pub fn ANativeWindow_getHeight(window: *mut ANativeWindow) -> c_int;
+    pub fn ANativeWindow_setBuffersGeometry(window: *mut ANativeWindow, w: c_int, h: c_int, f: c_int) -> c_int;
+    
+    pub fn AInputQueue_finishEvent(queue: *mut AInputQueue, event: *mut c_void, handled: c_int);
+    
+    pub fn AInputEvent_getType(event: *const c_void) -> c_int;
+    pub fn AInputEvent_getDeviceId(event: *const c_void) -> c_int;
+    pub fn AInputEvent_getSource(event: *const c_void) -> c_int;
+    
+    pub fn AMotionEvent_getAction(event: *const c_void) -> c_int;
+    pub fn AMotionEvent_getX(event: *const c_void, pointer_index: usize) -> f32;
+    pub fn AMotionEvent_getY(event: *const c_void, pointer_index: usize) -> f32;
+    pub fn AMotionEvent_getPointerCount(event: *const c_void) -> usize;
+    pub fn AMotionEvent_getPointerId(event: *const c_void, pointer_index: usize) -> c_int;
+    pub fn AMotionEvent_getEventTime(event: *const c_void) -> i64;
+    
+    pub fn AKeyEvent_getAction(event: *const c_void) -> c_int;
+    pub fn AKeyEvent_getKeyCode(event: *const c_void) -> c_int;
+    pub fn AKeyEvent_getMetaState(event: *const c_void) -> c_int;
+    
+    pub fn __android_log_write(prio: c_int, tag: *const c_char, text: *const c_char) -> c_int;
+    
+    pub fn AChoreographer_getInstance() -> *mut AChoreographer;
+    pub fn AChoreographer_postFrameCallback(
+        choreographer: *mut AChoreographer,
+        callback: Option<unsafe extern "C" fn(i64, *mut c_void)>,
+        data: *mut c_void
+    );
+    
+    pub fn ALooper_forThread() -> *mut ALooper;
+    pub fn ALooper_acquire(looper: *mut ALooper);
+    pub fn ALooper_release(looper: *mut ALooper);
+    pub fn ALooper_addFd(
+        looper: *mut ALooper,
+        fd: c_int,
+        ident: c_int,
+        events: c_int,
+        callback: Option<unsafe extern "C" fn(c_int, c_int, *mut c_void) -> c_int>,
+        data: *mut c_void
+    ) -> c_int;
+    pub fn ALooper_removeFd(looper: *mut ALooper, fd: c_int) -> c_int;
+    pub fn ALooper_pollAll(timeoutMillis: c_int, outFd: *mut c_int, outEvents: *mut c_int, outData: *mut *mut c_void) -> c_int;
+    pub fn ALooper_wake(looper: *mut ALooper);
+}
 
 #[cfg(any(not(target_os = "android"), feature = "mock"))]
-mod mock {
+pub mod mock {
     use super::*;
     use core::sync::atomic::{AtomicI32, Ordering};
-    
+
     static MOCK_W: AtomicI32 = AtomicI32::new(1080);
     static MOCK_H: AtomicI32 = AtomicI32::new(1920);
 
@@ -57,7 +101,7 @@ mod mock {
         MOCK_W.store(w, Ordering::Relaxed);
         MOCK_H.store(h, Ordering::Relaxed);
     }
-    
+
     pub unsafe fn ANativeWindow_acquire(_: *mut ANativeWindow) {}
     pub unsafe fn ANativeWindow_release(_: *mut ANativeWindow) {}
     pub unsafe fn ANativeWindow_getWidth(_: *mut ANativeWindow) -> c_int { MOCK_W.load(Ordering::Relaxed) }
@@ -65,45 +109,43 @@ mod mock {
     pub unsafe fn ANativeWindow_setBuffersGeometry(_: *mut ANativeWindow, w: c_int, h: c_int, _: c_int) -> c_int {
         MOCK_W.store(w, Ordering::Relaxed); MOCK_H.store(h, Ordering::Relaxed); 0
     }
-    
+
     pub unsafe fn AInputQueue_getEvent(_: *mut AInputQueue, _: *mut *mut c_void) -> c_int { 0 }
     pub unsafe fn AInputQueue_preDispatchEvent(_: *mut AInputQueue, _: *mut c_void) -> c_int { 0 }
     pub unsafe fn AInputQueue_sendEvent(_: *mut AInputQueue, _: *mut c_void, _: c_int) {}
     pub unsafe fn AInputQueue_finishEvent(_: *mut AInputQueue, _: *mut c_void, _: c_int) {}
-    
+
     pub unsafe fn AInputEvent_getType(_: *const c_void) -> c_int { AINPUT_EVENT_TYPE_MOTION }
     pub unsafe fn AInputEvent_getDeviceId(_: *const c_void) -> c_int { 0 }
     pub unsafe fn AInputEvent_getSource(_: *const c_void) -> c_int { 0 }
-    
+
     pub unsafe fn AMotionEvent_getAction(_: *const c_void) -> c_int { AMOTION_EVENT_ACTION_DOWN }
-    pub unsafe fn AMotionEvent_getX(_: *const c_void, _: usize) -> c_float { 100.0 }
-    pub unsafe fn AMotionEvent_getY(_: *const c_void, _: usize) -> c_float { 200.0 }
+    pub unsafe fn AMotionEvent_getX(_: *const c_void, _: usize) -> f32 { 100.0 }
+    pub unsafe fn AMotionEvent_getY(_: *const c_void, _: usize) -> f32 { 200.0 }
     pub unsafe fn AMotionEvent_getPointerCount(_: *const c_void) -> usize { 1 }
     pub unsafe fn AMotionEvent_getPointerId(_: *const c_void, _: usize) -> c_int { 0 }
     pub unsafe fn AMotionEvent_getEventTime(_: *const c_void) -> i64 { 0 }
-    
+
     pub unsafe fn AKeyEvent_getAction(_: *const c_void) -> c_int { 0 }
     pub unsafe fn AKeyEvent_getKeyCode(_: *const c_void) -> c_int { 0 }
     pub unsafe fn AKeyEvent_getMetaState(_: *const c_void) -> c_int { 0 }
-    
+
     pub unsafe fn ALooper_forThread() -> *mut ALooper { core::ptr::null_mut() }
     pub unsafe fn ALooper_acquire(_: *mut ALooper) {}
     pub unsafe fn ALooper_release(_: *mut ALooper) {}
-    pub unsafe fn ALooper_addFd(_: *mut ALooper, _: c_int, _: c_int, _: c_int, _: Option<extern "C" fn(c_int, c_int, *mut c_void) -> c_int>, _: *mut c_void) -> c_int { 1 }
+    pub unsafe fn ALooper_addFd(_: *mut ALooper, _: c_int, _: c_int, _: c_int, _: Option<unsafe extern "C" fn(c_int, c_int, *mut c_void) -> c_int>, _: *mut c_void) -> c_int { 1 }
     pub unsafe fn ALooper_removeFd(_: *mut ALooper, _: c_int) -> c_int { 1 }
     pub unsafe fn ALooper_pollAll(_: c_int, _: *mut c_int, _: *mut c_int, _: *mut *mut c_void) -> c_int { -1 }
     pub unsafe fn ALooper_wake(_: *mut ALooper) {}
-    
+
     pub unsafe fn AChoreographer_getInstance() -> *mut AChoreographer { core::ptr::null_mut() }
-    pub unsafe fn AChoreographer_postFrameCallback(_: *mut AChoreographer, _: Option<extern "C" fn(i64, *mut c_void)>, _: *mut c_void) {}
-    
+    pub unsafe fn AChoreographer_postFrameCallback(_: *mut AChoreographer, _: Option<unsafe extern "C" fn(i64, *mut c_void)>, _: *mut c_void) {}
+
     pub unsafe fn __android_log_write(_: c_int, _: *const c_char, _: *const c_char) -> c_int { 0 }
 }
 
 #[cfg(any(not(target_os = "android"), feature = "mock"))]
 use mock::*;
-
-// ==================== Safe Wrappers ====================
 
 pub struct NativeWindow {
     ptr: *mut ANativeWindow,
@@ -117,17 +159,17 @@ impl NativeWindow {
         ANativeWindow_acquire(ptr);
         Some(Self { ptr, width: ANativeWindow_getWidth(ptr), height: ANativeWindow_getHeight(ptr) })
     }
-    
+
     pub fn width(&self) -> i32 { self.width }
     pub fn height(&self) -> i32 { self.height }
     pub fn size(&self) -> Vec2 { Vec2::new(self.width as f32, self.height as f32) }
-    
+
     pub fn set_buffer_geometry(&mut self, w: i32, h: i32, f: i32) -> Result<(), ()> {
         if unsafe { ANativeWindow_setBuffersGeometry(self.ptr, w, h, f) } == 0 {
             self.width = w; self.height = h; Ok(())
         } else { Err(()) }
     }
-    
+
     pub unsafe fn as_raw(&self) -> *mut ANativeWindow { self.ptr }
 }
 
@@ -174,7 +216,7 @@ impl InputEventHandle {
     pub unsafe fn from_raw(raw: *mut c_void, queue: *mut AInputQueue) -> Self {
         Self { raw, queue }
     }
-    
+
     pub fn parse(&self) -> InputEvent {
         unsafe {
             match AInputEvent_getType(self.raw) {
@@ -194,7 +236,7 @@ impl InputEventHandle {
             }
         }
     }
-    
+
     pub fn finish(self, handled: bool) {
         unsafe { AInputQueue_finishEvent(self.queue, self.raw, if handled { 1 } else { 0 }); }
         core::mem::forget(self);
@@ -246,6 +288,7 @@ pub fn looper_poll_all(timeout_ms: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mock;
 
     #[test]
     fn test_native_window_null() {
