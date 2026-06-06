@@ -6,22 +6,22 @@ use k1_sys::{NativeWindow, android_log, LogLevel, post_frame_callback};
 
 #[repr(C)]
 pub struct ANativeActivityCallbacks {
-    pub on_start: Option<<extern "C" fn(*mut c_void)>,
-    pub on_resume: Option<<extern "C" fn(*mut c_void)>,
-    pub on_save_instance_state: Option<<extern "C" fn(*mut c_void, *mut usize) -> *mut c_void>,
-    pub on_pause: Option<<extern "C" fn(*mut c_void)>,
-    pub on_stop: Option<<extern "C" fn(*mut c_void)>,
-    pub on_destroy: Option<<extern "C" fn(*mut c_void)>,
-    pub on_window_focus_changed: Option<<extern "C" fn(*mut c_void, c_int)>,
-    pub on_native_window_created: Option<<extern "C" fn(*mut c_void, *mut c_void)>,
-    pub on_native_window_resized: Option<<extern "C" fn(*mut c_void, *mut c_void)>,
-    pub on_native_window_redraw_needed: Option<<extern "C" fn(*mut c_void, *mut c_void)>,
-    pub on_native_window_destroyed: Option<<extern "C" fn(*mut c_void, *mut c_void)>,
-    pub on_input_queue_created: Option<<extern "C" fn(*mut c_void, *mut c_void)>,
-    pub on_input_queue_destroyed: Option<<extern "C" fn(*mut c_void, *mut c_void)>,
-    pub on_content_rect_changed: Option<<extern "C" fn(*mut c_void, *const c_void)>,
-    pub on_configuration_changed: Option<<extern "C" fn(*mut c_void)>,
-    pub on_low_memory: Option<<extern "C" fn(*mut c_void)>,
+    pub on_start: Option<extern "C" fn(*mut c_void)>,
+    pub on_resume: Option<extern "C" fn(*mut c_void)>,
+    pub on_save_instance_state: Option<extern "C" fn(*mut c_void, *mut usize) -> *mut c_void>,
+    pub on_pause: Option<extern "C" fn(*mut c_void)>,
+    pub on_stop: Option<extern "C" fn(*mut c_void)>,
+    pub on_destroy: Option<extern "C" fn(*mut c_void)>,
+    pub on_window_focus_changed: Option<extern "C" fn(*mut c_void, c_int)>,
+    pub on_native_window_created: Option<extern "C" fn(*mut c_void, *mut c_void)>,
+    pub on_native_window_resized: Option<extern "C" fn(*mut c_void, *mut c_void)>,
+    pub on_native_window_redraw_needed: Option<extern "C" fn(*mut c_void, *mut c_void)>,
+    pub on_native_window_destroyed: Option<extern "C" fn(*mut c_void, *mut c_void)>,
+    pub on_input_queue_created: Option<extern "C" fn(*mut c_void, *mut c_void)>,
+    pub on_input_queue_destroyed: Option<extern "C" fn(*mut c_void, *mut c_void)>,
+    pub on_content_rect_changed: Option<extern "C" fn(*mut c_void, *const c_void)>,
+    pub on_configuration_changed: Option<extern "C" fn(*mut c_void)>,
+    pub on_low_memory: Option<extern "C" fn(*mut c_void)>,
 }
 
 #[repr(C)]
@@ -40,8 +40,8 @@ pub struct ANativeActivity {
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static mut WINDOW_PTR: *mut c_void = std::ptr::null_mut();
-static mut GL_CTX: Option<<GlContext> = None;
-static mut BATCH: Option<<BatchRenderer<<400, 600>> = None;
+static mut GL_CTX: Option<GlContext> = None;
+static mut BATCH: Option<BatchRenderer<400, 600>> = None;
 
 #[no_mangle]
 pub extern "C" fn ANativeActivity_onCreate(activity: *mut ANativeActivity, _saved_state: *mut c_void, _saved_state_size: usize) {
