@@ -40,6 +40,7 @@ pub const ANDROID_LOG_WARN: c_int = 5;
 pub const ANDROID_LOG_ERROR: c_int = 6;
 
 #[cfg(all(target_os = "android", not(feature = "mock"), not(test)))]
+#[link(name = "android")]
 extern "C" {
     pub fn ANativeWindow_acquire(window: *mut ANativeWindow);
     pub fn ANativeWindow_release(window: *mut ANativeWindow);
