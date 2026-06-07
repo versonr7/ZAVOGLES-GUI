@@ -95,28 +95,66 @@ extern "C" fn on_destroy(_activity: *mut c_void) {
 
 extern "C" fn render_frame(_frame_time: i64, _data: *mut c_void) {
     if !RUNNING.load(Ordering::Relaxed) { return; }
+    
     unsafe {
         if let Some(ref ctx) = GL_CTX {
             ctx.clear();
+            
             if let Some(ref mut batch) = BATCH {
                 batch.begin_frame();
+                
                 let w = ctx.width() as f32;
                 let h = ctx.height() as f32;
-                let size = 200.0;
-                let x = (w - size) / 2.0;
-                let y = (h - size) / 2.0;
-                batch.draw_quad(
-                    Rect::from_coords(x, y, size, size),
-                    Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-                    Color::RED
-                );
+                
+                // الوقت للحركة
+                let time = (std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as f32) / 1000.0;
+                
+                // رسم 3 موجات
+                draw_wave(batch, w, h, time, 0.0, 0.3, 0.8, 1.0, 0.02, 20.0);   // أزرق فاتح
+                draw_wave(batch, w, h, time, 1.5, 0.2, 0.5, 1.0, 0.015, 25.0);  // أزرق داكن
+                draw_wave(batch, w, h, time, 3.0, 0.4, 0.2, 0.8, 0.025, 15.0);  // بنفسجي
+                
                 let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
                 batch.end_frame(&matrix);
             }
+            
             let _ = ctx.swap_buffers();
         }
+        
         if RUNNING.load(Ordering::Relaxed) {
             post_frame_callback(render_frame, std::ptr::null_mut());
         }
+    }
+}
+
+// دالة رسم موجة
+fn draw_wave(
+    batch: &mut BatchRenderer<400, 600>,
+    w: f32, h: f32,
+    time: f32,
+    phase: f32,
+    r: f32, g: f32, b: f32,
+    freq: f32,
+    amp: f32
+) {
+    let y_base = h * 0.3;  // ارتفاع الموجة من الشاشة
+    let segments = 100;     // عدد الشرائح
+    
+    for i in 0..segments {
+        let x = (i as f32 / segments as f32) * w;
+        let y = y_base + ((x * freq + time + phase).sin() * amp);
+        
+        // رسم شريحة صغيرة
+        let slice_w = w / segments as f32 + 1.0;
+        let slice_h = 3.0;  // سماكة الموجة
+        
+        batch.draw_quad(
+            Rect::from_coords(x, y, slice_w, slice_h),
+            Rect::from_coords(0.0, 0.0, 1.0, 1.0),
+            Color::new(r, g, b, 0.6)  // شفافية
+        );
     }
 }
