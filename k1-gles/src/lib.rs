@@ -50,6 +50,8 @@ pub const GL_TRUE: c_int = 1;
 
 // ==================== EGL FFI ====================
 #[cfg(all(target_os = "android", not(feature = "mock"), not(test)))]
+#[link(name = "GLESv2")]
+#[link(name = "EGL")]
 extern "C" {
     pub fn eglGetDisplay(display_id: *mut c_void) -> *mut c_void;
     pub fn eglInitialize(dpy: *mut c_void, major: *mut c_int, minor: *mut c_int) -> c_int;
@@ -85,6 +87,8 @@ use egl_mock::*;
 
 // ==================== GL FFI ====================
 #[cfg(all(target_os = "android", not(feature = "mock"), not(test)))]
+#[link(name = "GLESv2")]
+#[link(name = "EGL")]
 extern "C" {
     pub fn glViewport(x: c_int, y: c_int, width: c_int, height: c_int);
     pub fn glClearColor(r: f32, g: f32, b: f32, a: f32);
