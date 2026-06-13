@@ -248,6 +248,38 @@ impl Drop for Shader {
     fn drop(&mut self) { unsafe { glDeleteShader(self.handle); } }
 }
 
+// ==================== Wave Shader ====================
+pub const WAVE_VERTEX_SHADER: &str = r#"
+attribute vec2 a_pos;
+attribute vec2 a_uv;
+attribute vec4 a_color;
+varying vec2 v_uv;
+varying vec4 v_color;
+uniform float u_time;
+uniform float u_wave_amp;
+uniform float u_wave_freq;
+uniform mat4 u_matrix;
+
+void main() {
+    vec2 pos = a_pos;
+    pos.y += sin(pos.x * u_wave_freq + u_time) * u_wave_amp;
+    gl_Position = u_matrix * vec4(pos, 0.0, 1.0);
+    v_uv = a_uv;
+    v_color = a_color / 255.0;
+}
+"#;
+
+pub const WAVE_FRAGMENT_SHADER: &str = r#"
+precision mediump float;
+varying vec2 v_uv;
+varying vec4 v_color;
+uniform sampler2D u_tex;
+
+void main() {
+    gl_FragColor = v_color * texture2D(u_tex, v_uv);
+}
+"#;
+
 // ==================== Program ====================
 pub struct Program {
     handle: c_int,
@@ -366,10 +398,11 @@ pub struct BatchRenderer<const MAX_VERTICES: usize, const MAX_INDICES: usize> {
 	                            } 
 
 	     impl<const MAX_VERTICES: usize, const MAX_INDICES: usize> BatchRenderer<MAX_VERTICES, MAX_INDICES> {
-	     	    pub fn new() -> Result<Self, i32> {
-	     	    	        if MAX_VERTICES == 0 || MAX_INDICES == 0 { return Err(0x9993); }                      
-        let vs = Shader::from_source(GL_VERTEX_SHADER, "attribute vec2 a_pos;attribute vec2 a_uv;attribute vec4 a_color;varying vec2 v_uv;varying vec4 v_color;uniform mat4 u_matrix;void main(){gl_Position=u_matrix*vec4(a_pos,0.0,1.0);v_uv=a_uv;v_color=a_color/255.0;}")?;
-        let fs = Shader::from_source(GL_FRAGMENT_SHADER, "precision mediump float;varying vec2 v_uv;varying vec4 v_color;uniform sampler2D u_tex;void main(){gl_FragColor=v_color*texture2D(u_tex,v_uv);}")?;
+    pub fn new() -> Result<Self, i32> {
+        if MAX_VERTICES == 0 || MAX_INDICES == 0 { return Err(0x9993); }
+        
+        let vs = Shader::from_source(GL_VERTEX_SHADER, WAVE_VERTEX_SHADER)?;
+        let fs = Shader::from_source(GL_FRAGMENT_SHADER, WAVE_FRAGMENT_SHADER)?;
         let prog = Program::new()?;
         prog.attach_shader(&vs);
         prog.attach_shader(&fs);
@@ -453,27 +486,58 @@ pub struct GlContext {
 
 impl GlContext {
     pub fn from_window(win: &k1_sys::NativeWindow) -> Result<Self, i32> {
-        let mut dpy = EglDisplay::get_default().map_err(|e| e)?;
-        let (_maj, _min) = dpy.initialize().map_err(|e| e)?;
+        let mut dpy = EglDisplay::get_default().map_err(|e| {
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglGetDisplay failed");
+            e
+        })?;
+        
+        let (maj, min) = dpy.initialize().map_err(|e| {
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglInitialize failed");
+            e
+        })?;
+        
         k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "EGL OK");
-        let attribs = [EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_DEPTH_SIZE, 16, EGL_STENCIL_SIZE, 0, EGL_NONE];
-        let cfg = dpy.choose_config(&attribs).map_err(|e| e)?;
-        let surf = dpy.create_window_surface(cfg, win).map_err(|e| e)?;
-        let ctx = dpy.create_context(cfg, 2).map_err(|e| e)?;
-        dpy.make_current(surf, ctx).map_err(|e| e)?;
-        let w = win.width(); let h = win.height();
+        
+        let attribs = [
+            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+            EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
+            EGL_DEPTH_SIZE, 16, EGL_STENCIL_SIZE, 0,
+            EGL_NONE,
+        ];
+        
+        let cfg = dpy.choose_config(&attribs).map_err(|e| {
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglChooseConfig failed");
+            e
+        })?;
+        
+        let surf = dpy.create_window_surface(cfg, win).map_err(|e| {
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglCreateWindowSurface failed");
+            e
+        })?;
+        
+        let ctx = dpy.create_context(cfg, 2).map_err(|e| {
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglCreateContext failed");
+            e
+        })?;
+        
+        dpy.make_current(surf, ctx).map_err(|e| {
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglMakeCurrent failed");
+            e
+        })?;
+        
+        let w = win.width();
+        let h = win.height();
+        
         unsafe {
             glViewport(0, 0, w, h);
             glClearColor(0.0, 0.0, 0.0, 1.0);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
+        
         Ok(Self { display: dpy, surface: surf, context: ctx, width: w, height: h })
     }
-    pub fn swap_buffers(&self) -> Result<(), i32> { self.display.swap_buffers(self.surface) }
-    pub fn clear(&self) { unsafe { glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); } }
-    pub fn width(&self) -> i32 { self.width }
-    pub fn height(&self) -> i32 { self.height }
 }
 
 // ==================== Tests ====================
