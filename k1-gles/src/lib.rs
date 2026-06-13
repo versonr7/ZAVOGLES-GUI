@@ -538,6 +538,22 @@ impl GlContext {
         
         Ok(Self { display: dpy, surface: surf, context: ctx, width: w, height: h })
     }
+    
+    pub fn swap_buffers(&self) -> Result<(), i32> {
+        self.display.swap_buffers(self.surface)
+    }
+    
+    pub fn clear(&self) {
+        unsafe { glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }
+    }
+    
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+    
+    pub fn height(&self) -> i32 {
+        self.height
+    }
 }
 
 // ==================== Tests ====================
