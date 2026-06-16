@@ -14,11 +14,13 @@ pub const EGL_OPENGL_ES2_BIT: c_int = 0x0004;
 pub const EGL_RENDERABLE_TYPE: c_int = 0x3040;
 pub const EGL_SURFACE_TYPE: c_int = 0x3033;
 pub const EGL_RED_SIZE: c_int = 0x3024;
-pub const EGL_GREEN_SIZE: c_int = 0x3025;
-pub const EGL_BLUE_SIZE: c_int = 0x3026;
-pub const EGL_ALPHA_SIZE: c_int = 0x3027;
+pub const EGL_GREEN_SIZE: c_int = 0x3023;
+pub const EGL_BLUE_SIZE: c_int = 0x3022;
+pub const EGL_ALPHA_SIZE: c_int = 0x3021;      // ← 0x3021 مو 0x3027!
 pub const EGL_DEPTH_SIZE: c_int = 0x3025;
-pub const EGL_STENCIL_SIZE: c_int = 0x3026;
+pub const EGL_STENCIL_SIZE: c_int = 0x3028;    // ← 0x3028 مو 0x3027!
+pub const EGL_CONFIG_CAVEAT: c_int = 0x3027;   // ← 0x3027 هي هذي!
+pub const EGL_OPENGL_ES3_BIT: c_int = 0x0040;  // جديد
 pub const EGL_CONTEXT_CLIENT_VERSION: c_int = 0x3098;
 
 // ==================== GL Constants ====================
@@ -471,8 +473,67 @@ pub struct BatchRenderer<const MAX_VERTICES: usize, const MAX_INDICES: usize> {
             }
         }
     }
-    pub fn vertex_count(&self) -> usize { self.vertex_count }
+        pub fn vertex_count(&self) -> usize { self.vertex_count }
     pub fn index_count(&self) -> usize { self.index_count }
+}
+
+// ==================== EGL Fallback ====================
+impl EglDisplay {
+    pub fn choose_config_with_fallback(&mut self) -> Result<*mut c_void, i32> {
+        let configs: &[&[c_int]] = &[
+            &[
+                EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
+                EGL_DEPTH_SIZE, 16, EGL_STENCIL_SIZE, 8,
+                EGL_NONE,
+            ],
+            &[
+                EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
+                EGL_DEPTH_SIZE, 16,
+                EGL_NONE,
+            ],
+            &[
+                EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
+                EGL_NONE,
+            ],
+            &[
+                EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+                EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
+                EGL_NONE,
+            ],
+            &[
+                EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                EGL_NONE,
+            ],
+        ];
+
+        for (i, attribs) in configs.iter().enumerate() {
+            match self.choose_config(attribs) {
+                Ok(cfg) => {
+                    // بدون alloc::format - static strings فقط
+                    match i {
+                        0 => k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "Config1: RGBA8+Depth+Stencil"),
+                        1 => k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "Config2: RGBA8+Depth"),
+                        2 => k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "Config3: RGBA8 only"),
+                        3 => k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "Config4: ES3 fallback"),
+                        4 => k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "Config5: Minimal"),
+                        _ => {}
+                    }
+                    return Ok(cfg);
+                }
+                Err(_) => continue,
+            }
+        }
+
+        Err(0x3001)
+    }
 }
 
 // ==================== GL Context ====================
@@ -498,15 +559,8 @@ impl GlContext {
         
         k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "EGL OK");
         
-        let attribs = [
-    EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-    EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
-    EGL_NONE,
-];
-        
-        let cfg = dpy.choose_config(&attribs).map_err(|e| {
-            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglChooseConfig failed");
+                let cfg = dpy.choose_config_with_fallback().map_err(|e| {
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglChooseConfig all fallbacks failed");
             e
         })?;
         
