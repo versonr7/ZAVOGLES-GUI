@@ -1,0 +1,20 @@
+[package]
+name = "k1-vulkan"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+k1-core = { workspace = true }
+ash = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+ash-window = { workspace = true }
+ndk = { workspace = true }
+
+[features]
+default = ["validation"]
+validation = []

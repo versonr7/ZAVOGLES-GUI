@@ -1,14 +1,8 @@
-# Rust
 /target
-**/target
 **/*.rs.bk
 *.swp
 *.swo
 *~
 .DS_Store
+*.spv
 Cargo.lock
-
-# IDE
-.idea/
-.vscode/
-*.iml
