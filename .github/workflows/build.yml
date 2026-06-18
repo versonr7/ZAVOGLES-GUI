@@ -1,33 +1,52 @@
-name: Build Android APK
+name: Build Android (xbuild)
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
-          components: rust-src
-      
-      - name: Install Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b
-          link-to-sdk: true
-      
-      - name: Install cargo-apk2
-        run: cargo install cargo-apk2
-      
-      - name: Build Debug APK
-        run: cargo apk2 build -p k1-app
-      
+          targets: aarch64-linux-android,armv7-linux-androideabi
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libx11-dev libasound2-dev libudev-dev lld llvm
+
+      - name: Install cargo-binstall
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf             https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install xbuild
+        run: cargo binstall xbuild -y
+
+      - name: Check environment
+        run: x doctor
+
+      - name: Build APK (Debug)
+        run: x build --platform android
+
+      - name: Build APK (Release)
+        run: x build --release --platform android
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: k1-debug-apk
-          path: target/debug/apk/*.apk
+          name: apk-xbuild
+          path: target/x/**/*.apk
