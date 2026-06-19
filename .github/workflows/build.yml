@@ -1,4 +1,4 @@
-name: Build Android (xbuild)
+name: Build Android (cargo-apk2)
 
 on:
   push:
@@ -13,7 +13,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -22,31 +22,29 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libx11-dev libasound2-dev libudev-dev lld llvm
+      - name: Install cargo-apk2
+        run: cargo install cargo-apk2
 
-      - name: Install cargo-binstall
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf             https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-
-      - name: Install xbuild
-        run: cargo binstall xbuild -y
-
-      - name: Check environment
-        run: x doctor
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27d
+          add-to-path: true
 
       - name: Build APK (Debug)
-        run: x build --platform android
+        run: cargo apk2 build
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
       - name: Build APK (Release)
-        run: x build --release --platform android
+        run: cargo apk2 build --release
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: apk-xbuild
-          path: target/x/**/*.apk
+          name: apk-cargo-apk2
+          path: target/android-artifacts/**/*.apk
