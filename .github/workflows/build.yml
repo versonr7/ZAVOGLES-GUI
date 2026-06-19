@@ -34,14 +34,11 @@ jobs:
           ndk-version: r26b
           link-to-sdk: true
 
-      - name: Build APK (Debug)
+      - name: Build Debug APK
         run: cargo apk2 build -p k1-app
-
-      - name: Build APK (Release)
-        run: cargo apk2 build --release -p k1-app
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: apk-cargo-apk2
+          name: k1-debug-apk
           path: target/debug/apk/*.apk
