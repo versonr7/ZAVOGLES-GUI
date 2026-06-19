@@ -19,10 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+          targets: aarch64-linux-android
+          components: rust-src
 
       - name: Install cargo-apk2
         run: cargo install cargo-apk2
@@ -30,21 +31,17 @@ jobs:
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: r27d
-          add-to-path: true
+          ndk-version: r26b
+          link-to-sdk: true
 
       - name: Build APK (Debug)
-        run: cargo apk2 build
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+        run: cargo apk2 build -p k1-app
 
       - name: Build APK (Release)
-        run: cargo apk2 build --release
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+        run: cargo apk2 build --release -p k1-app
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: apk-cargo-apk2
-          path: target/android-artifacts/**/*.apk
+          path: target/debug/apk/*.apk
