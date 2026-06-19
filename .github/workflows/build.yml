@@ -28,7 +28,7 @@ jobs:
         run: cargo install xbuild
 
       - name: Build APK (Debug)
-        run: x build --platform android -p k1-app
+        run: x build --platform android --arch arm64 -p k1-app
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
