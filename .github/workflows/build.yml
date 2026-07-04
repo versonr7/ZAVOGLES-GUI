@@ -1,37 +1,33 @@
-name: Build Android (xbuild)
+name: Build Android APK
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
-
-env:
-  CARGO_TERM_COLOR: always
+on: [push, pull_request]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
         with:
           targets: aarch64-linux-android
-
-      - name: Install xbuild
-        run: cargo install xbuild
-
-      - name: Build APK (Debug)
-        run: x build --platform android --arch arm64 -p k1-app
-
+          components: rust-src
+      
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          link-to-sdk: true
+      
+      - name: Install cargo-apk2
+        run: cargo install cargo-apk2
+      
+      - name: Build Debug APK
+        run: cargo apk2 build -p k1-app
+      
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: k1-xbuild-apk
-          path: target/x/debug/android/**/*.apk
+          name: k1-debug-apk
+          path: target/debug/apk/*.apk
