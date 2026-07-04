@@ -1,31 +1,42 @@
-name: Build Android APK
+name: Build Android (cargo-apk2)
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust nightly
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
           targets: aarch64-linux-android
           components: rust-src
-      
-      - name: Install Android NDK
+
+      - name: Install cargo-apk2
+        run: cargo install cargo-apk2
+
+      - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26b
           link-to-sdk: true
-      
-      - name: Install cargo-apk2
-        run: cargo install cargo-apk2
-      
+
       - name: Build Debug APK
         run: cargo apk2 build -p k1-app
-      
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
