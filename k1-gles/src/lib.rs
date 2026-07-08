@@ -29,6 +29,7 @@ pub const GL_FRAGMENT_SHADER: c_int = 0x8B30;
 pub const GL_ARRAY_BUFFER: c_int = 0x8892;
 pub const GL_ELEMENT_ARRAY_BUFFER: c_int = 0x8893;
 pub const GL_STATIC_DRAW: c_int = 0x88E4;
+pub const GL_DYNAMIC_DRAW: c_int = 0x88E8;
 pub const GL_FLOAT: c_int = 0x1406;
 pub const GL_UNSIGNED_BYTE: c_int = 0x1401;
 pub const GL_UNSIGNED_SHORT: c_int = 0x1403;
@@ -93,6 +94,7 @@ use egl_mock::*;
 #[link(name = "EGL")]
 extern "C" {
     pub fn glViewport(x: c_int, y: c_int, width: c_int, height: c_int);
+    pub fn glUniform1f(location: c_int, v: f32);
     pub fn glClearColor(r: f32, g: f32, b: f32, a: f32);
     pub fn glClear(mask: c_int);
     pub fn glEnable(cap: c_int);
@@ -136,6 +138,7 @@ pub mod gl_mock {
     static NEXT: AtomicI32 = AtomicI32::new(100);
     
     pub unsafe fn glViewport(_: c_int, _: c_int, _: c_int, _: c_int) {}
+    pub unsafe fn glUniform1f(_: c_int, _: f32) {}
     pub unsafe fn glClearColor(_: f32, _: f32, _: f32, _: f32) {}
     pub unsafe fn glClear(_: c_int) {}
     pub unsafe fn glEnable(_: c_int) {}
@@ -310,6 +313,9 @@ impl Program {
         let arr = mat.to_array();
         unsafe { glUniformMatrix4fv(loc, 1, 0, arr.as_ptr()); }
     }
+  pub fn set_f32(&self, loc: c_int, v: f32) {
+    unsafe { glUniform1f(loc, v); }
+}
     pub fn handle(&self) -> c_int { self.handle }
 }
 
@@ -354,19 +360,20 @@ impl Texture {
             glBindTexture(GL_TEXTURE_2D, self.handle);
         }
     }
-    pub fn upload_rgba(&self, width: i32, height: i32, data: &[u8]) {
-        let expected = (width * height * 4) as usize;
-        if data.len() != expected {
-            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "RGBA size mismatch");
-            return;
-        }
-        self.bind(0);
-        unsafe {
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as c_int, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.as_ptr() as *const c_void);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        }
+    pub fn upload_rgba(&self, width: i32, height: i32, data: &[u8]) -> Result<(), &'static str> {
+    let expected = (width * height * 4) as usize;
+    if data.len() != expected {
+        return Err("RGBA size mismatch");
     }
+    self.bind(0);
+    unsafe {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as c_int, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.as_ptr() as *const c_void);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    Ok(())
+}
+
     pub fn handle(&self) -> c_int { self.handle }
 }
 
@@ -440,7 +447,9 @@ pub struct BatchRenderer<const MAX_VERTICES: usize, const MAX_INDICES: usize> {
         self.index_count = 0;
     }
     pub fn draw_quad(&mut self, rect: Rect, uv: Rect, color: Color) {
-        if self.vertex_count >= self.vertices.len() { return; }
+    if self.vertex_count + 4 > MAX_VERTICES || self.index_count + 6 > MAX_INDICES {
+    return;
+}
         let base = self.vertex_count;
         let c = color.to_u8();
         self.vertices[base] = Vertex { pos: Vec2::new(rect.min.x, rect.min.y), uv: Vec2::new(uv.min.x, uv.min.y), color: c };
@@ -450,29 +459,32 @@ pub struct BatchRenderer<const MAX_VERTICES: usize, const MAX_INDICES: usize> {
         self.vertex_count += 4;
         self.index_count += 6;
     }
-    pub fn end_frame(&mut self, matrix: &Mat4) {
-        if self.vertex_count == 0 { return; }
-        if let Some(ref vbo) = self.vbo {
-            vbo.upload(&self.vertices[..self.vertex_count], GL_STATIC_DRAW);
-        }
-        if let Some(ref prog) = self.program {
-            prog.use_program();
-            prog.set_mat4(prog.uniform_location("u_matrix"), matrix);
-            unsafe {
-                glEnableVertexAttribArray(0);
-                glEnableVertexAttribArray(1);
-                glEnableVertexAttribArray(2);
-                glVertexAttribPointer(0, 2, GL_FLOAT, 0, 20, core::ptr::null());
-                glVertexAttribPointer(1, 2, GL_FLOAT, 0, 20, 8 as *const c_void);
-                             glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, 20, 16 as *const c_void);
-                if let Some(ref ibo) = self.ibo { ibo.bind(); }
-                glDrawElements(GL_TRIANGLES, self.index_count as c_int, GL_UNSIGNED_SHORT, core::ptr::null());
-                glDisableVertexAttribArray(0);
-                glDisableVertexAttribArray(1);
-                glDisableVertexAttribArray(2);
-            }
+    pub fn end_frame(&mut self, matrix: &Mat4, time: f32, wave_amp: f32, wave_freq: f32) {
+    if self.vertex_count == 0 { return; }
+    if let Some(ref vbo) = self.vbo {
+        vbo.upload(&self.vertices[..self.vertex_count], GL_DYNAMIC_DRAW);
+    }
+    if let Some(ref prog) = self.program {
+        prog.use_program();
+        prog.set_mat4(prog.uniform_location("u_matrix"), matrix);
+        prog.set_f32(prog.uniform_location("u_time"), time);
+        prog.set_f32(prog.uniform_location("u_wave_amp"), wave_amp);
+        prog.set_f32(prog.uniform_location("u_wave_freq"), wave_freq);
+        unsafe {
+            glEnableVertexAttribArray(0);
+            glEnableVertexAttribArray(1);
+            glEnableVertexAttribArray(2);
+            glVertexAttribPointer(0, 2, GL_FLOAT, 0, 20, core::ptr::null());
+            glVertexAttribPointer(1, 2, GL_FLOAT, 0, 20, 8 as *const c_void);
+            glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, 20, 16 as *const c_void);
+            if let Some(ref ibo) = self.ibo { ibo.bind(); }
+            glDrawElements(GL_TRIANGLES, self.index_count as c_int, GL_UNSIGNED_SHORT, core::ptr::null());
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
+            glDisableVertexAttribArray(2);
         }
     }
+}
         pub fn vertex_count(&self) -> usize { self.vertex_count }
     pub fn index_count(&self) -> usize { self.index_count }
 }
@@ -631,7 +643,6 @@ mod tests {
         assert!(s.is_ok());
     }
     #[test]
-    #[test]
     #[ignore = "mock cannot detect invalid GLSL syntax"]
     fn test_shader_compile_fail() {
         let s = Shader::from_source(GL_VERTEX_SHADER, "@@@");
@@ -660,22 +671,25 @@ mod tests {
         let br = BatchRenderer::<400, 600>::new();   // 100 quads
         assert!(br.is_ok());
     }
-    #[test]
-    fn test_batch_draw_quad() {
-        let mut br = BatchRenderer::<40, 60>::new().unwrap();     // 10 quads
-        br.begin_frame();
-        br.draw_quad(Rect::from_coords(0.0, 0.0, 100.0, 100.0), Rect::from_coords(0.0, 0.0, 1.0, 1.0), Color::WHITE);
-        assert_eq!(br.vertex_count(), 4);
-        assert_eq!(br.index_count(), 6);
-    }
-    #[test]
-    fn test_batch_overflow_silent() {
-        let mut br = BatchRenderer::<4, 6>::new().unwrap();       // 1 quad
-        br.begin_frame();
-        br.draw_quad(Rect::from_coords(0.0, 0.0, 10.0, 10.0), Rect::from_coords(0.0, 0.0, 1.0, 1.0), Color::WHITE);
-        br.draw_quad(Rect::from_coords(0.0, 0.0, 10.0, 10.0), Rect::from_coords(0.0, 0.0, 1.0, 1.0), Color::WHITE);
-        assert_eq!(br.vertex_count(), 4);
-    }
+#[test]
+fn test_batch_draw_quad() {
+    let mut br = BatchRenderer::<40, 60>::new().unwrap();
+    br.begin_frame();
+    br.draw_quad(Rect::from_coords(0.0, 0.0, 100.0, 100.0), Rect::from_coords(0.0, 0.0, 1.0, 1.0), Color::WHITE);
+    let matrix = Mat4::ortho(0.0, 800.0, 600.0, 0.0, -1.0, 1.0);
+    br.end_frame(&matrix, 0.0, 0.0, 0.0);
+    assert_eq!(br.vertex_count(), 4);
+    assert_eq!(br.index_count(), 6);
+}
+
+#[test]
+fn test_batch_overflow_silent() {
+    let mut br = BatchRenderer::<4, 6>::new().unwrap();
+    br.begin_frame();
+    br.draw_quad(Rect::from_coords(0.0, 0.0, 10.0, 10.0), Rect::from_coords(0.0, 0.0, 1.0, 1.0), Color::WHITE);
+    br.draw_quad(Rect::from_coords(0.0, 0.0, 10.0, 10.0), Rect::from_coords(0.0, 0.0, 1.0, 1.0), Color::WHITE);
+    assert_eq!(br.vertex_count(), 4);
+}
     #[test]
     fn test_vertex_size() {
         assert_eq!(core::mem::size_of::<Vertex>(), 20);

@@ -14,8 +14,10 @@ crate-type = ["cdylib"]
 k1-math = { path = "../k1-math" }
 k1-sys = { path = "../k1-sys" }
 k1-gles = { path = "../k1-gles" }
+heapless = "0.9.3"
 
 [package.metadata.android]
+package = "com.versonr7.zavogles"
 build_targets = ["aarch64-linux-android"]
 
 [package.metadata.android.sdk]

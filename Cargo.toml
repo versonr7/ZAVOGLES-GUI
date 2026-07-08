@@ -12,7 +12,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["K1 Team"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/versonr7/K1-Platform"
+repository = "https://github.com/versonr7/ZAVOGLES-GUI"
 
 [workspace.dependencies]
 # Math
@@ -20,12 +20,6 @@ k1-math = { path = "k1-math" }
 
 # System
 k1-sys = { path = "k1-sys" }
-
-# Android
-android_logger = "0.14"
-log = "0.4"
-ndk = "0.9"
-ndk-sys = "0.6"
 
 [profile.release]
 opt-level = 3

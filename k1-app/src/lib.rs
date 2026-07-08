@@ -7,14 +7,22 @@ use k1_math::{Color, Rect, Mat4};
 use k1_gles::{GlContext, BatchRenderer};
 use k1_sys::{NativeWindow, post_frame_callback};
 use activity::{ANativeActivity, ANativeActivityCallbacks};
+use heapless::String as HString;
 
-// ===== LOGGING =====
+// ===== LOGGING (Zero Allocation) =====
 #[macro_export]
 macro_rules! logfox {
+    ($tag:expr, $msg:expr) => {
+        {
+            k1_sys::android_log(k1_sys::LogLevel::Info, $tag, $msg);
+        }
+    };
     ($tag:expr, $($arg:tt)*) => {
         {
-            let msg = format!($($arg)*);
-            k1_sys::android_log(k1_sys::LogLevel::Info, $tag, &msg);
+            use core::fmt::Write;
+            let mut buf = heapless::String::<256>::new();
+            let _ = core::write!(buf, $($arg)*);
+            k1_sys::android_log(k1_sys::LogLevel::Info, $tag, buf.as_str());
         }
     };
 }
@@ -84,32 +92,34 @@ extern "C" fn on_destroy(_activity: *mut c_void) {
 }
 
 // ===== RENDER LOOP =====
-extern "C" fn render_frame(_frame_time: i64, _data: *mut c_void) {
+extern "C" fn render_frame(frame_time_nanos: i64, _data: *mut c_void) {
     if !RUNNING.load(Ordering::Relaxed) { return; }
+    
+    // استخدم وقت Choreographer بدل syscall
+    let time = (frame_time_nanos as f32) / 1_000_000_000.0;
     
     unsafe {
         if let Some(ref ctx) = GL_CTX {
             ctx.clear();
             
             if let Some(ref mut batch) = BATCH {
-                batch.begin_frame();
-                
                 let w = ctx.width() as f32;
                 let h = ctx.height() as f32;
-                let time = get_time();
+                let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
                 
-                // خلفية داكنة
+                // خلفية موجية
+                batch.begin_frame();
                 batch.draw_quad(
                     Rect::from_coords(0.0, 0.0, w, h),
                     Rect::from_coords(0.0, 0.0, 1.0, 1.0),
                     Color::new(0.05, 0.05, 0.1, 1.0),
                 );
+                batch.end_frame(&matrix, time, 10.0, 0.005);
                 
-                // XMB UI
+                // XMB UI (بدون موجة)
+                batch.begin_frame();
                 draw_xmb(batch, w, h, time);
-                
-                let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
-                batch.end_frame(&matrix);
+                batch.end_frame(&matrix, time, 0.0, 0.0);
             }
             
             let _ = ctx.swap_buffers();
@@ -136,14 +146,6 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
             Color::new(0.0, 0.3, 0.6, alpha),
         );
     }
-}
-
-// ===== HELPERS =====
-fn get_time() -> f32 {
-    (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as f32) / 1000.0
 }
 
 // ===== TDD TESTS =====
