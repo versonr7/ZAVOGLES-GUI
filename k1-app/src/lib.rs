@@ -47,7 +47,16 @@ pub extern "C" fn ANativeActivity_onCreate(
         (*callbacks).on_native_window_created = Some(on_window_created);
         (*callbacks).on_native_window_destroyed = Some(on_window_destroyed);
         (*callbacks).on_destroy = Some(on_destroy);
+        (*callbacks).on_input_queue_created = Some(on_input_queue_created);
+        (*callbacks).on_input_queue_destroyed = Some(on_input_queue_destroyed);
     }
+}
+extern "C" fn on_input_queue_created(_activity: *mut c_void, _queue: *mut c_void) {
+    logfox!("ZAVOGLES", "Input queue created");
+}
+
+extern "C" fn on_input_queue_destroyed(_activity: *mut c_void, _queue: *mut c_void) {
+    logfox!("ZAVOGLES", "Input queue destroyed");
 }
 
 // ===== CALLBACKS =====
@@ -92,11 +101,10 @@ extern "C" fn on_destroy(_activity: *mut c_void) {
 }
 
 // ===== RENDER LOOP =====
-extern "C" fn render_frame(frame_time_nanos: i64, _data: *mut c_void) {
+extern "C" fn render_frame(frame_time: i64, _data: *mut c_void) {
     if !RUNNING.load(Ordering::Relaxed) { return; }
     
-    // استخدم وقت Choreographer بدل syscall
-    let time = (frame_time_nanos as f32) / 1_000_000_000.0;
+    let time = (frame_time as f32) / 1_000_000_000.0;
     
     unsafe {
         if let Some(ref ctx) = GL_CTX {
@@ -105,9 +113,12 @@ extern "C" fn render_frame(frame_time_nanos: i64, _data: *mut c_void) {
             if let Some(ref mut batch) = BATCH {
                 let w = ctx.width() as f32;
                 let h = ctx.height() as f32;
+                
+                logfox!("ZAVOGLES", "Frame: {}x{} time={}", w as i32, h as i32, time);
+                
                 let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
                 
-                // خلفية موجية
+                // خلفية
                 batch.begin_frame();
                 batch.draw_quad(
                     Rect::from_coords(0.0, 0.0, w, h),
@@ -116,13 +127,19 @@ extern "C" fn render_frame(frame_time_nanos: i64, _data: *mut c_void) {
                 );
                 batch.end_frame(&matrix, time, 10.0, 0.005);
                 
-                // XMB UI (بدون موجة)
+                // XMB
                 batch.begin_frame();
                 draw_xmb(batch, w, h, time);
                 batch.end_frame(&matrix, time, 0.0, 0.0);
+            } else {
+                logfox!("ZAVOGLES", "BATCH is None!");
             }
             
-            let _ = ctx.swap_buffers();
+            if let Err(e) = ctx.swap_buffers() {
+                logfox!("ZAVOGLES", "swap_buffers error: {}", e);
+            }
+        } else {
+            logfox!("ZAVOGLES", "GL_CTX is None!");
         }
         
         if RUNNING.load(Ordering::Relaxed) {
