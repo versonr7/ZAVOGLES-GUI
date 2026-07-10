@@ -1,2 +1,0 @@
-# sed -i 's/core::mem::size_of::()/core::mem::size_of::<Vec2>()/g' k1-math/src/lib.rs
-# sed -i 's/core::mem::size_of::()/core::mem::size_of::<Vec3>()/g' k1-math/src/lib.rs

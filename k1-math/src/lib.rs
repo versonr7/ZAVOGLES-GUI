@@ -1,7 +1,7 @@
 #![no_std]
 #![warn(missing_docs)]
 
-use core::ops::{Add, Sub, Mul, Div, Neg};
+use core::ops::{Add, Div, Mul, Neg, Sub};
 
 /// 2D vector (f32) - Stack size: 8 bytes
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -39,7 +39,11 @@ impl Vec2 {
     #[inline(always)]
     pub fn normalize(self) -> Self {
         let len = self.length();
-        if len > 0.0 { self / len } else { Self::ZERO }
+        if len > 0.0 {
+            self / len
+        } else {
+            Self::ZERO
+        }
     }
 
     #[inline(always)]
@@ -60,27 +64,37 @@ impl Vec2 {
 
 impl Add for Vec2 {
     type Output = Self;
-    fn add(self, rhs: Self) -> Self { Self::new(self.x + rhs.x, self.y + rhs.y) }
+    fn add(self, rhs: Self) -> Self {
+        Self::new(self.x + rhs.x, self.y + rhs.y)
+    }
 }
 
 impl Sub for Vec2 {
     type Output = Self;
-    fn sub(self, rhs: Self) -> Self { Self::new(self.x - rhs.x, self.y - rhs.y) }
+    fn sub(self, rhs: Self) -> Self {
+        Self::new(self.x - rhs.x, self.y - rhs.y)
+    }
 }
 
 impl Mul<f32> for Vec2 {
     type Output = Self;
-    fn mul(self, rhs: f32) -> Self { Self::new(self.x * rhs, self.y * rhs) }
+    fn mul(self, rhs: f32) -> Self {
+        Self::new(self.x * rhs, self.y * rhs)
+    }
 }
 
 impl Div<f32> for Vec2 {
     type Output = Self;
-    fn div(self, rhs: f32) -> Self { Self::new(self.x / rhs, self.y / rhs) }
+    fn div(self, rhs: f32) -> Self {
+        Self::new(self.x / rhs, self.y / rhs)
+    }
 }
 
 impl Neg for Vec2 {
     type Output = Self;
-    fn neg(self) -> Self { Self::new(-self.x, -self.y) }
+    fn neg(self) -> Self {
+        Self::new(-self.x, -self.y)
+    }
 }
 
 /// 3D vector (f32) - Stack size: 12 bytes
@@ -92,8 +106,16 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
-    pub const ONE: Self = Self { x: 1.0, y: 1.0, z: 1.0 };
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+    };
 
     #[inline(always)]
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
@@ -141,19 +163,28 @@ impl Mat4 {
             [2.0 / rl, 0.0, 0.0, 0.0],
             [0.0, 2.0 / tb, 0.0, 0.0],
             [0.0, 0.0, -2.0 / fn_, 0.0],
-            [-(right + left) / rl, -(top + bottom) / tb, -(far + near) / fn_, 1.0],
+            [
+                -(right + left) / rl,
+                -(top + bottom) / tb,
+                -(far + near) / fn_,
+                1.0,
+            ],
         ])
     }
 
     pub fn translate(x: f32, y: f32, z: f32) -> Self {
         let mut m = Self::IDENTITY;
-        m.m[3][0] = x; m.m[3][1] = y; m.m[3][2] = z;
+        m.m[3][0] = x;
+        m.m[3][1] = y;
+        m.m[3][2] = z;
         m
     }
 
     pub fn scale(x: f32, y: f32, z: f32) -> Self {
         let mut m = Self::IDENTITY;
-        m.m[0][0] = x; m.m[1][1] = y; m.m[2][2] = z;
+        m.m[0][0] = x;
+        m.m[1][1] = y;
+        m.m[2][2] = z;
         m
     }
 
@@ -161,11 +192,10 @@ impl Mat4 {
         let mut r = Self::IDENTITY;
         for col in 0..4 {
             for row in 0..4 {
-                r.m[col][row] =
-                    self.m[0][row] * other.m[col][0] +
-                    self.m[1][row] * other.m[col][1] +
-                    self.m[2][row] * other.m[col][2] +
-                    self.m[3][row] * other.m[col][3];
+                r.m[col][row] = self.m[0][row] * other.m[col][0]
+                    + self.m[1][row] * other.m[col][1]
+                    + self.m[2][row] * other.m[col][2]
+                    + self.m[3][row] * other.m[col][3];
             }
         }
         r
@@ -175,17 +205,32 @@ impl Mat4 {
         let x = self.m[0][0] * v.x + self.m[1][0] * v.y + self.m[3][0];
         let y = self.m[0][1] * v.x + self.m[1][1] * v.y + self.m[3][1];
         let w = self.m[0][3] * v.x + self.m[1][3] * v.y + self.m[3][3];
-        if w != 0.0 { Vec2::new(x / w, y / w) } else { Vec2::new(x, y) }
+        if w != 0.0 {
+            Vec2::new(x / w, y / w)
+        } else {
+            Vec2::new(x, y)
+        }
     }
     pub fn to_array(self) -> [f32; 16] {
         [
-            self.m[0][0], self.m[0][1], self.m[0][2], self.m[0][3],
-            self.m[1][0], self.m[1][1], self.m[1][2], self.m[1][3],
-            self.m[2][0], self.m[2][1], self.m[2][2], self.m[2][3],
-            self.m[3][0], self.m[3][1], self.m[3][2], self.m[3][3],
+            self.m[0][0],
+            self.m[0][1],
+            self.m[0][2],
+            self.m[0][3],
+            self.m[1][0],
+            self.m[1][1],
+            self.m[1][2],
+            self.m[1][3],
+            self.m[2][0],
+            self.m[2][1],
+            self.m[2][2],
+            self.m[2][3],
+            self.m[3][0],
+            self.m[3][1],
+            self.m[3][2],
+            self.m[3][3],
         ]
     }
-
 }
 
 /// Axis-aligned rectangle - Stack size: 16 bytes
@@ -197,33 +242,51 @@ pub struct Rect {
 
 impl Rect {
     pub fn from_pos_size(pos: Vec2, size: Vec2) -> Self {
-        Self { min: pos, max: pos + size }
+        Self {
+            min: pos,
+            max: pos + size,
+        }
     }
 
     pub fn from_coords(x: f32, y: f32, w: f32, h: f32) -> Self {
         Self::from_pos_size(Vec2::new(x, y), Vec2::new(w, h))
     }
 
-    pub fn width(self) -> f32 { self.max.x - self.min.x }
-    pub fn height(self) -> f32 { self.max.y - self.min.y }
-    pub fn size(self) -> Vec2 { Vec2::new(self.width(), self.height()) }
-    pub fn center(self) -> Vec2 { (self.min + self.max) * 0.5 }
+    pub fn width(self) -> f32 {
+        self.max.x - self.min.x
+    }
+    pub fn height(self) -> f32 {
+        self.max.y - self.min.y
+    }
+    pub fn size(self) -> Vec2 {
+        Vec2::new(self.width(), self.height())
+    }
+    pub fn center(self) -> Vec2 {
+        (self.min + self.max) * 0.5
+    }
 
     pub fn contains(self, point: Vec2) -> bool {
-        point.x >= self.min.x && point.x <= self.max.x &&
-        point.y >= self.min.y && point.y <= self.max.y
+        point.x >= self.min.x
+            && point.x <= self.max.x
+            && point.y >= self.min.y
+            && point.y <= self.max.y
     }
 
     pub fn intersects(self, other: Self) -> bool {
-        self.min.x < other.max.x && self.max.x > other.min.x &&
-        self.min.y < other.max.y && self.max.y > other.min.y
+        self.min.x < other.max.x
+            && self.max.x > other.min.x
+            && self.min.y < other.max.y
+            && self.max.y > other.min.y
     }
 
     pub fn intersection(self, other: Self) -> Self {
         let min = self.min.max(other.min);
         let max = self.max.min(other.max);
-        if min.x < max.x && min.y < max.y { Self { min, max } }
-        else { Self::from_pos_size(Vec2::ZERO, Vec2::ZERO) }
+        if min.x < max.x && min.y < max.y {
+            Self { min, max }
+        } else {
+            Self::from_pos_size(Vec2::ZERO, Vec2::ZERO)
+        }
     }
 
     pub fn expand(self, padding: f32) -> Self {
@@ -234,7 +297,10 @@ impl Rect {
     }
 
     pub fn translate(self, offset: Vec2) -> Self {
-        Self { min: self.min + offset, max: self.max + offset }
+        Self {
+            min: self.min + offset,
+            max: self.max + offset,
+        }
     }
 }
 
@@ -248,13 +314,48 @@ pub struct Color {
 }
 
 impl Color {
-    pub const WHITE: Self = Self { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
-    pub const BLACK: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
-    pub const TRANSPARENT: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-    pub const RED: Self = Self { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
-    pub const GREEN: Self = Self { r: 0.0, g: 1.0, b: 0.0, a: 1.0 };
-    pub const BLUE: Self = Self { r: 0.0, g: 0.0, b: 1.0, a: 1.0 };
-    pub const XMB_BLUE: Self = Self { r: 0.0, g: 0.4, b: 0.8, a: 1.0 };
+    pub const WHITE: Self = Self {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const BLACK: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const TRANSPARENT: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+    };
+    pub const RED: Self = Self {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const GREEN: Self = Self {
+        r: 0.0,
+        g: 1.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const BLUE: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const XMB_BLUE: Self = Self {
+        r: 0.0,
+        g: 0.4,
+        b: 0.8,
+        a: 1.0,
+    };
 
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
@@ -265,7 +366,12 @@ impl Color {
     }
 
     pub fn from_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0)
+        Self::new(
+            r as f32 / 255.0,
+            g as f32 / 255.0,
+            b as f32 / 255.0,
+            a as f32 / 255.0,
+        )
     }
 
     pub fn lerp(self, other: Self, t: f32) -> Self {
@@ -282,14 +388,21 @@ impl Color {
     }
 
     pub fn to_u8(self) -> [u8; 4] {
-        [(self.r * 255.0 + 0.5) as u8, (self.g * 255.0 + 0.5) as u8, (self.b * 255.0 + 0.5) as u8, (self.a * 255.0 + 0.5) as u8]
+        [
+            (self.r * 255.0 + 0.5) as u8,
+            (self.g * 255.0 + 0.5) as u8,
+            (self.b * 255.0 + 0.5) as u8,
+            (self.a * 255.0 + 0.5) as u8,
+        ]
     }
 }
 
 /// Animation easing functions
 pub mod easing {
     #[inline(always)]
-    pub fn linear(t: f32) -> f32 { t }
+    pub fn linear(t: f32) -> f32 {
+        t
+    }
 
     #[inline(always)]
     pub fn ease_out_cubic(t: f32) -> f32 {
@@ -299,12 +412,23 @@ pub mod easing {
 
     #[inline(always)]
     pub fn ease_out_expo(t: f32) -> f32 {
-        if t >= 1.0 { 1.0 } else { 1.0 - libm::powf(2.0, -10.0 * t) }
+        if t >= 1.0 {
+            1.0
+        } else {
+            1.0 - libm::powf(2.0, -10.0 * t)
+        }
     }
 
     #[inline(always)]
     pub fn ease_in_out_quad(t: f32) -> f32 {
-        if t < 0.5 { 2.0 * t * t } else { 1.0 - { let v = -2.0 * t + 2.0; v * v } / 2.0 }
+        if t < 0.5 {
+            2.0 * t * t
+        } else {
+            1.0 - {
+                let v = -2.0 * t + 2.0;
+                v * v
+            } / 2.0
+        }
     }
 }
 
@@ -373,7 +497,10 @@ mod tests {
 
     #[test]
     fn vec2_lerp() {
-        assert_eq!(Vec2::ZERO.lerp(Vec2::new(10.0, 20.0), 0.5), Vec2::new(5.0, 10.0));
+        assert_eq!(
+            Vec2::ZERO.lerp(Vec2::new(10.0, 20.0), 0.5),
+            Vec2::new(5.0, 10.0)
+        );
     }
 
     #[test]
