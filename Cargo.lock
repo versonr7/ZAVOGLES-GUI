@@ -35,6 +35,7 @@ dependencies = [
  "k1-gles",
  "k1-math",
  "k1-sys",
+ "libm",
 ]
 
 [[package]]

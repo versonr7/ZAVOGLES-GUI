@@ -236,7 +236,7 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
 
     for (i, _cat) in categories.iter().enumerate() {
         let x = w * 0.15 + (i as f32 * w * 0.25);
-        let alpha = 0.6 + (time + i as f32).sin() * 0.2;
+        let alpha = 0.6 + libm::sinf(time + i as f32) * 0.2;
 
         batch.draw_quad(
             Rect::from_coords(x - 40.0, y - 20.0, 80.0, 40.0),
@@ -244,6 +244,16 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
             Color::new(0.0, 0.3, 0.6, alpha),
         );
     }
+}
+
+// ===== PANIC HANDLER (no_std) =====
+#[cfg(not(test))]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    // In no_std, we can't easily format PanicInfo without alloc
+    // Just log a static message
+    k1_sys::android_log(k1_sys::LogLevel::Error, "ZAVOGLES", "PANIC!");
+    loop {}
 }
 
 // ===== TESTS =====
