@@ -34,13 +34,21 @@ jobs:
       - name: Cache cargo-apk2 binary
         uses: actions/cache@v4
         with:
-          path: ~/.cargo/bin/cargo-apk2
+          path: |
+            ~/.cargo/bin/cargo-apk2
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
           key: ${{ runner.os }}-cargo-apk2-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-apk2-
 
       - name: Install cargo-apk2
-        run: cargo install cargo-apk2
+        run: |
+          if ! command -v cargo-apk2 &> /dev/null; then
+            cargo install cargo-apk2
+          else
+            echo "cargo-apk2 already installed, skipping"
+          fi
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
