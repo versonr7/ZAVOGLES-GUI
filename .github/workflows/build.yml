@@ -62,7 +62,7 @@ jobs:
           link-to-sdk: true
 
       - name: Build Debug APK
-        run: cargo apk2 build -p k1-app -- -Zbuild-std=core,alloc,panic_abort
+        run: cargo apk2 build -p k1-app
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

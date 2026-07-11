@@ -246,6 +246,12 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
     }
 }
 
+#![cfg_attr(not(test), feature(lang_items))]
+
+#[cfg(not(test))]
+#[lang = "eh_personality"]
+extern "C" fn eh_personality() {}
+
 // ===== PANIC HANDLER (no_std) =====
 #[cfg(not(test))]
 #[panic_handler]
