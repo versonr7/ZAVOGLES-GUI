@@ -63,6 +63,9 @@ jobs:
 
       - name: Build Debug APK
         run: cargo apk2 build -p k1-app
+        env:
+          CARGO_UNSTABLE_BUILD_STD: core,alloc,panic_abort
+          CARGO_UNSTABLE_BUILD_STD_FEATURES: panic_immediate_abort
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

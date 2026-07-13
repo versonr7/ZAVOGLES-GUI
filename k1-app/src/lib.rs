@@ -251,6 +251,22 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
 #[lang = "eh_personality"]
 extern "C" fn eh_personality() {}
 
+// ===== ANDROID C RUNTIME FIX =====
+// cargo-apk2 with rust-lld doesn't link C++ finalization runtime.
+// Provide dummy symbols so dlopen succeeds.
+#[no_mangle]
+pub extern "C" fn __cxa_finalize(_: *mut c_void) {}
+
+#[no_mangle]
+pub extern "C" fn __register_atfork(
+    _: *mut c_void,
+    _: *mut c_void,
+    _: *mut c_void,
+    _: *mut c_void,
+) -> c_int {
+    0
+}
+
 // ===== PANIC HANDLER (no_std) =====
 #[cfg(not(test))]
 #[panic_handler]
