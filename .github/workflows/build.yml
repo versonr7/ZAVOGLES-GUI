@@ -63,6 +63,8 @@ jobs:
 
       - name: Build Debug APK
         run: cargo apk2 build -p k1-app
+        env:
+          RUSTFLAGS: "-Clink-arg=-lc -Clink-arg=-lm"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
