@@ -1,11 +1,11 @@
 #![no_std]
 #![cfg_attr(not(test), feature(lang_items))]
 
-use core::ffi::c_void;
+use core::ffi::{c_int, c_void};
 use core::sync::atomic::{AtomicBool, AtomicI32, AtomicPtr, AtomicU32, Ordering};
 use k1_gles::{BatchRenderer, GlContext};
 use k1_math::{Color, Mat4, Rect};
-use k1_sys::{android_log, ANativeWindow, LogLevel, NativeWindow};
+use k1_sys::NativeWindow;
 
 // ===== LOGGING =====
 #[macro_export]
