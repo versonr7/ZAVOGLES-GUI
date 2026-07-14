@@ -1,5 +1,5 @@
 #![no_std]
-#![allow(warnings)] //i don't need #![warn(missing_docs)] we will add after fix bug
+#![allow(warnings)]  //i don't need #![warn(missing_docs)] we will add after fix bug
 #![cfg_attr(not(test), feature(lang_items))]
 
 use core::ffi::{c_int, c_void};
@@ -259,7 +259,11 @@ extern "C" fn eh_personality() {}
 pub extern "C" fn __cxa_finalize(_: *mut c_void) {}
 
 #[no_mangle]
-pub extern "C" fn __cxa_atexit(_: *mut c_void, _: *mut c_void, _: *mut c_void) -> c_int {
+pub extern "C" fn __cxa_atexit(
+    _: *mut c_void,
+    _: *mut c_void,
+    _: *mut c_void,
+) -> c_int {
     0
 }
 
