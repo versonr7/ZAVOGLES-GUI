@@ -253,29 +253,33 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
 extern "C" fn eh_personality() {}
 
 // ===== ANDROID C RUNTIME FIX =====
-// Precompiled core (panic=unwind) references these C++ runtime symbols.
-// We provide dummies so dlopen succeeds on Android.
+// Provide all symbols that rust-lld fails to link properly
 #[no_mangle]
 pub extern "C" fn __cxa_finalize(_: *mut c_void) {}
 
 #[no_mangle]
-pub extern "C" fn __cxa_atexit(
-    _: *mut c_void,
-    _: *mut c_void,
-    _: *mut c_void,
-) -> c_int {
-    0
-}
+pub extern "C" fn __cxa_atexit(_: *mut c_void, _: *mut c_void, _: *mut c_void) -> i32 { 0 }
 
 #[no_mangle]
-pub extern "C" fn __register_atfork(
-    _: *mut c_void,
-    _: *mut c_void,
-    _: *mut c_void,
-    _: *mut c_void,
-) -> c_int {
-    0
-}
+pub extern "C" fn __register_atfork(_: *mut c_void, _: *mut c_void, _: *mut c_void, _: *mut c_void) -> i32 { 0 }
+
+#[no_mangle]
+pub extern "C" fn __android_log_write(_: i32, _: *const i8, _: *const i8) -> i32 { 0 }
+
+#[no_mangle]
+pub extern "C" fn memset(dest: *mut c_void, c: i32, n: usize) -> *mut c_void { dest }
+
+#[no_mangle]
+pub extern "C" fn memcpy(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void { dest }
+
+#[no_mangle]
+pub extern "C" fn memmove(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void { dest }
+
+#[no_mangle]
+pub extern "C" fn memcmp(s1: *const c_void, s2: *const c_void, n: usize) -> i32 { 0 }
+
+#[no_mangle]
+pub extern "C" fn strlen(s: *const i8) -> usize { 0 }
 
 // ===== PANIC HANDLER (no_std) =====
 #[cfg(not(test))]
