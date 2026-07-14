@@ -23,9 +23,9 @@ k1-sys = { path = "k1-sys" }
 
 [profile.release]
 opt-level = 3
-lto = "fat"
-codegen-units = 1
-strip = true
+#lto = "fat"
+#codegen-units = 1
+#strip = true
 # panic strategy: default is unwind, but our dummy symbols handle Android
 
 [profile.dev]
