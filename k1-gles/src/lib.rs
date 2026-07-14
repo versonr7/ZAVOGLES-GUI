@@ -1,5 +1,5 @@
 #![no_std]
-#![warn(missing_docs)]
+#![allow(warnings)]
 
 use core::ffi::{c_char, c_int, c_void};
 use k1_math::{Color, Mat4, Rect, Vec2};

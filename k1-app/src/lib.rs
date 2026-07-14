@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(warnings)] //i don't need #![warn(missing_docs)] we will add after fix bug
 #![cfg_attr(not(test), feature(lang_items))]
 
 use core::ffi::{c_int, c_void};
@@ -252,10 +253,15 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
 extern "C" fn eh_personality() {}
 
 // ===== ANDROID C RUNTIME FIX =====
-// cargo-apk2 with rust-lld doesn't link C++ finalization runtime.
-// Provide dummy symbols so dlopen succeeds.
+// Precompiled core (panic=unwind) references these C++ runtime symbols.
+// We provide dummies so dlopen succeeds on Android.
 #[no_mangle]
 pub extern "C" fn __cxa_finalize(_: *mut c_void) {}
+
+#[no_mangle]
+pub extern "C" fn __cxa_atexit(_: *mut c_void, _: *mut c_void, _: *mut c_void) -> c_int {
+    0
+}
 
 #[no_mangle]
 pub extern "C" fn __register_atfork(

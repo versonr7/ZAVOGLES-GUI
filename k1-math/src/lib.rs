@@ -1,5 +1,5 @@
 #![no_std]
-#![warn(missing_docs)]
+#![allow(warnings)]
 
 use core::ops::{Add, Div, Mul, Neg, Sub};
 

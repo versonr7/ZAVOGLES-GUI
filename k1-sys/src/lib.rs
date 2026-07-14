@@ -1,5 +1,5 @@
 #![no_std]
-#![warn(missing_docs)]
+#![allow(warnings)]
 #![allow(non_camel_case_types)]
 
 use core::ffi::{c_char, c_int, c_void};
