@@ -222,9 +222,11 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
         let w = WIDTH.load(Ordering::Acquire) as f32;
         let h = HEIGHT.load(Ordering::Acquire) as f32;
 
+        // Update viewport from render thread (safe — no concurrent access)
+        ctx.update_viewport(w as i32, h as i32);
+
         let frame = FRAME_COUNT.fetch_add(1, Ordering::Relaxed);
         let time = (frame as f32) / 60.0;
-
         let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
 
         batch.begin_frame();

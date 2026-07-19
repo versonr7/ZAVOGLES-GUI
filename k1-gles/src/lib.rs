@@ -928,6 +928,11 @@ pub struct GlContext {
 }
 
 impl GlContext {
+    pub fn update_viewport(&self, w: i32, h: i32) {
+        unsafe {
+            glViewport(0, 0, w, h);
+        }
+    }
     pub fn from_window(win: &k1_sys::NativeWindow) -> Result<Self, i32> {
         let mut dpy = EglDisplay::get_default().map_err(|e| {
             k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglGetDisplay failed");
