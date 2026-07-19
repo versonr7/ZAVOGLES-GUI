@@ -1,5 +1,5 @@
 #![no_std]
-#![allow(warnings)]  //i don't need #![warn(missing_docs)] we will add after fix bug
+#![allow(warnings)]
 #![cfg_attr(not(test), feature(lang_items))]
 
 use core::ffi::{c_int, c_void};
@@ -27,13 +27,15 @@ macro_rules! logfox {
 }
 
 use core::mem::MaybeUninit;
+
 // ===== STATE =====
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static WIDTH: AtomicI32 = AtomicI32::new(0);
 static HEIGHT: AtomicI32 = AtomicI32::new(0);
 static FRAME_COUNT: AtomicU32 = AtomicU32::new(0);
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
+static FRAME_LOCK: AtomicBool = AtomicBool::new(false);
 
-// Zero-allocation storage: objects live in static memory (BSS section), NOT heap
 static mut GL_CTX_STORAGE: MaybeUninit<GlContext> = MaybeUninit::uninit();
 static GL_CTX: AtomicPtr<GlContext> = AtomicPtr::new(core::ptr::null_mut());
 
@@ -41,7 +43,6 @@ static mut BATCH_STORAGE: MaybeUninit<BatchRenderer<400, 600>> = MaybeUninit::un
 static BATCH: AtomicPtr<BatchRenderer<400, 600>> = AtomicPtr::new(core::ptr::null_mut());
 
 // ===== JNI EXPORTS =====
-// ✅ CORRECT
 #[no_mangle]
 pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnCreate(
     _env: *mut c_void,
@@ -67,30 +68,28 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnSurfaceCre
 
         if let Some(win) = NativeWindow::from_raw(anw) {
             match GlContext::from_window(&win) {
-                Ok(ctx) => {
-                    match BatchRenderer::<400, 600>::new() {
-                        Ok(batch) => {
-                            // Store using Release ordering so the render thread sees everything
-                            GL_CTX_STORAGE.write(ctx);
-                            GL_CTX.store(GL_CTX_STORAGE.as_mut_ptr(), Ordering::Release);
+                Ok(ctx) => match BatchRenderer::<400, 600>::new() {
+                    Ok(batch) => {
+                        GL_CTX_STORAGE.write(ctx);
+                        GL_CTX.store(GL_CTX_STORAGE.as_mut_ptr(), Ordering::Release);
 
-                            BATCH_STORAGE.write(batch);
-                            BATCH.store(BATCH_STORAGE.as_mut_ptr(), Ordering::Release);
+                        BATCH_STORAGE.write(batch);
+                        BATCH.store(BATCH_STORAGE.as_mut_ptr(), Ordering::Release);
 
-                            RUNNING.store(true, Ordering::Relaxed);
-                            WIDTH.store(win.width(), Ordering::Release);
-                            HEIGHT.store(win.height(), Ordering::Release);
+                        WIDTH.store(win.width(), Ordering::Release);
+                        HEIGHT.store(win.height(), Ordering::Release);
+                        INITIALIZED.store(true, Ordering::Release);
+                        RUNNING.store(true, Ordering::Release);
 
-                            logfox!(
-                                "ZAVOGLES",
-                                "EGL initialized: {}x{}",
-                                win.width(),
-                                win.height()
-                            );
-                        }
-                        Err(e) => logfox!("ZAVOGLES", "ERROR: BatchRenderer failed: {}", e),
+                        logfox!(
+                            "ZAVOGLES",
+                            "EGL initialized: {}x{}",
+                            win.width(),
+                            win.height()
+                        );
                     }
-                }
+                    Err(e) => logfox!("ZAVOGLES", "ERROR: BatchRenderer failed: {}", e),
+                },
                 Err(e) => logfox!("ZAVOGLES", "ERROR: GlContext failed: {}", e),
             }
         } else {
@@ -119,19 +118,27 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnSurfaceDes
     logfox!("ZAVOGLES", "Native surfaceDestroyed");
 
     unsafe {
-        RUNNING.store(false, Ordering::Relaxed);
+        RUNNING.store(false, Ordering::Release);
 
-        // Drop GPU resources properly (calls glDeleteShader, glDeleteBuffers, etc.)
-        if !BATCH.load(Ordering::Relaxed).is_null() {
-            core::ptr::drop_in_place(BATCH_STORAGE.as_mut_ptr());
-        }
-        if !GL_CTX.load(Ordering::Relaxed).is_null() {
-            core::ptr::drop_in_place(GL_CTX_STORAGE.as_mut_ptr());
+        // انتظار انتهاء الإطار الحالي مع مهلة قصوى (ما يعادل إطارًا واحدًا)
+        let mut spins = 0;
+        while FRAME_LOCK.load(Ordering::Acquire) && spins < 10_000 {
+            core::hint::spin_loop();
+            spins += 1;
         }
 
-        // Null the pointers so frame() knows we're done
-        BATCH.store(core::ptr::null_mut(), Ordering::Release);
-        GL_CTX.store(core::ptr::null_mut(), Ordering::Release);
+        if INITIALIZED.load(Ordering::Acquire) {
+            if !BATCH.load(Ordering::Relaxed).is_null() {
+                core::ptr::drop_in_place(BATCH_STORAGE.as_mut_ptr());
+            }
+            if !GL_CTX.load(Ordering::Relaxed).is_null() {
+                core::ptr::drop_in_place(GL_CTX_STORAGE.as_mut_ptr());
+            }
+
+            BATCH.store(core::ptr::null_mut(), Ordering::Release);
+            GL_CTX.store(core::ptr::null_mut(), Ordering::Release);
+            INITIALIZED.store(false, Ordering::Release);
+        }
     }
 }
 
@@ -141,7 +148,7 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnPause(
     _class: *mut c_void,
 ) {
     logfox!("ZAVOGLES", "Native onPause");
-    RUNNING.store(false, Ordering::Relaxed);
+    RUNNING.store(false, Ordering::Release);
 }
 
 #[no_mangle]
@@ -158,7 +165,7 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnDestroy(
     _class: *mut c_void,
 ) {
     logfox!("ZAVOGLES", "Native onDestroy");
-    RUNNING.store(false, Ordering::Relaxed);
+    RUNNING.store(false, Ordering::Release);
 }
 
 #[no_mangle]
@@ -185,16 +192,25 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
     _env: *mut c_void,
     _class: *mut c_void,
 ) {
-    if !RUNNING.load(Ordering::Relaxed) {
+    // قفل إعادة الدخول مع Acquire في الحالتين
+    if FRAME_LOCK
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+        .is_err()
+    {
+        return;
+    }
+
+    if !RUNNING.load(Ordering::Acquire) {
+        FRAME_LOCK.store(false, Ordering::Release);
         return;
     }
 
     unsafe {
-        // Acquire ordering ensures we see the fully initialized objects
         let ctx_ptr = GL_CTX.load(Ordering::Acquire);
         let batch_ptr = BATCH.load(Ordering::Acquire);
 
         if ctx_ptr.is_null() || batch_ptr.is_null() {
+            FRAME_LOCK.store(false, Ordering::Release);
             return;
         }
 
@@ -211,7 +227,6 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
 
         let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
 
-        // Background with wave
         batch.begin_frame();
         batch.draw_quad(
             Rect::from_coords(0.0, 0.0, w, h),
@@ -220,7 +235,6 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
         );
         batch.end_frame(&matrix, time, 10.0, 0.005);
 
-        // XMB UI
         batch.begin_frame();
         draw_xmb(batch, w, h, time);
         batch.end_frame(&matrix, time, 0.0, 0.0);
@@ -229,6 +243,8 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
             logfox!("ZAVOGLES", "ERROR: swap_buffers: {}", e);
         }
     }
+
+    FRAME_LOCK.store(false, Ordering::Release);
 }
 
 // ===== XMB UI =====
@@ -252,46 +268,21 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
 #[lang = "eh_personality"]
 extern "C" fn eh_personality() {}
 
-// ===== ANDROID C RUNTIME FIX =====
-// Provide all symbols that rust-lld fails to link properly
-#[no_mangle]
-pub extern "C" fn __cxa_finalize(_: *mut c_void) {}
-
-#[no_mangle]
-pub extern "C" fn __cxa_atexit(_: *mut c_void, _: *mut c_void, _: *mut c_void) -> i32 { 0 }
-
-#[no_mangle]
-pub extern "C" fn __register_atfork(_: *mut c_void, _: *mut c_void, _: *mut c_void, _: *mut c_void) -> i32 { 0 }
-
-#[no_mangle]
-pub extern "C" fn __android_log_write(_: i32, _: *const i8, _: *const i8) -> i32 { 0 }
-
-#[no_mangle]
-pub extern "C" fn memset(dest: *mut c_void, c: i32, n: usize) -> *mut c_void { dest }
-
-#[no_mangle]
-pub extern "C" fn memcpy(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void { dest }
-
-#[no_mangle]
-pub extern "C" fn memmove(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void { dest }
-
-#[no_mangle]
-pub extern "C" fn memcmp(s1: *const c_void, s2: *const c_void, n: usize) -> i32 { 0 }
-
-#[no_mangle]
-pub extern "C" fn strlen(s: *const i8) -> usize { 0 }
-
-// ===== PANIC HANDLER (no_std) =====
 #[cfg(not(test))]
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    // In no_std, we can't easily format PanicInfo without alloc
-    // Just log a static message
-    k1_sys::android_log(k1_sys::LogLevel::Error, "ZAVOGLES", "PANIC!");
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    if let Some(loc) = info.location() {
+        k1_sys::android_log(
+            k1_sys::LogLevel::Error,
+            "ZAVOGLES",
+            "PANIC! (see logcat for details)",
+        );
+    } else {
+        k1_sys::android_log(k1_sys::LogLevel::Error, "ZAVOGLES", "PANIC!");
+    }
     loop {}
 }
 
-// ===== TESTS =====
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,5 +291,16 @@ mod tests {
     fn test_running() {
         RUNNING.store(true, Ordering::Relaxed);
         assert!(RUNNING.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_frame_lock() {
+        assert!(FRAME_LOCK
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+            .is_ok());
+        assert!(FRAME_LOCK
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+            .is_err());
+        FRAME_LOCK.store(false, Ordering::Release);
     }
 }
