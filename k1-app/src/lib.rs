@@ -87,29 +87,25 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnSurfaceCre
         }
 
         if let Some(win) = NativeWindow::from_raw(anw) {
-            match GlContext::from_window(&win) {
-                Ok(ctx) => match BatchRenderer::<400, 600>::new() {
-                    Ok(batch) => {
-                        GL_CTX_STORAGE.write(ctx);
-                        GL_CTX.store(GL_CTX_STORAGE.as_mut_ptr(), Ordering::Release);
+            // 1. اقرأ الأبعاد قبل نقل ملكية win
+            let w = win.width();
+            let h = win.height();
 
-                        BATCH_STORAGE.write(batch);
-                        BATCH.store(BATCH_STORAGE.as_mut_ptr(), Ordering::Release);
+            // 2. مرر win كقيمة (وليس كمرجع)
+            match GlContext::from_window(win) {
+                Ok(ctx) => {
+                    GL_CTX_STORAGE.write(ctx);
+                    GL_CTX.store(GL_CTX_STORAGE.as_mut_ptr(), Ordering::Release);
 
-                        WIDTH.store(win.width(), Ordering::Release);
-                        HEIGHT.store(win.height(), Ordering::Release);
-                        INITIALIZED.store(true, Ordering::Release);
-                        RUNNING.store(true, Ordering::Release);
+                    // لم نعد ننشئ BatchRenderer هنا، بل على خيط الرسم
 
-                        logfox!(
-                            "ZAVOGLES",
-                            "EGL initialized: {}x{}",
-                            win.width(),
-                            win.height()
-                        );
-                    }
-                    Err(e) => logfox!("ZAVOGLES", "ERROR: BatchRenderer failed: {}", e),
-                },
+                    WIDTH.store(w, Ordering::Release);
+                    HEIGHT.store(h, Ordering::Release);
+                    INITIALIZED.store(true, Ordering::Release);
+                    RUNNING.store(true, Ordering::Release);
+
+                    logfox!("ZAVOGLES", "EGL context ready: {}x{}", w, h);
+                }
                 Err(e) => logfox!("ZAVOGLES", "ERROR: GlContext failed: {}", e),
             }
         } else {
@@ -221,10 +217,8 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
                 return;
             }
 
-            // إعداد حالة OpenGL الأساسية
-            k1_gles::glClearColor(0.0, 0.0, 0.0, 1.0);
-            k1_gles::glEnable(k1_gles::GL_BLEND);
-            k1_gles::glBlendFunc(k1_gles::GL_SRC_ALPHA, k1_gles::GL_ONE_MINUS_SRC_ALPHA);
+            // إعداد حالة OpenGL الأساسية (آمن ويتم على خيط الرسم)
+            ctx.setup_gl_state();
 
             // إنشاء BatchRenderer على هذا الخيط لأول مرة
             match BatchRenderer::<400, 600>::new() {

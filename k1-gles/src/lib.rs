@@ -925,18 +925,24 @@ pub struct GlContext {
     context: *mut c_void,
     width: i32,
     height: i32,
-    _window: k1_sys::NativeWindow, // <-- يجب أن يكون هنا
+    _window: k1_sys::NativeWindow, // OWN the window, don't borrow!
 }
 
 impl GlContext {
-    pub fn update_viewport(&self, w: i32, h: i32) {
+    // داخل impl GlContext في k1-gles/lib.rs
+    pub fn setup_gl_state(&self) {
         unsafe {
-            glViewport(0, 0, w, h);
+            glClearColor(0.0, 0.0, 0.0, 1.0);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
     }
-    pub fn from_window(win: &k1_sys::NativeWindow) -> Result<Self, i32> {
+
+    // Take ownership of NativeWindow so it stays alive!
+    pub fn from_window(win: k1_sys::NativeWindow) -> Result<Self, i32> {
         let w = win.width();
         let h = win.height();
+
         let mut dpy = EglDisplay::get_default().map_err(|e| {
             k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglGetDisplay failed");
             e
@@ -950,15 +956,11 @@ impl GlContext {
         k1_sys::android_log(k1_sys::LogLevel::Info, "K1-GLES", "EGL OK");
 
         let cfg = dpy.choose_config_with_fallback().map_err(|e| {
-            k1_sys::android_log(
-                k1_sys::LogLevel::Error,
-                "K1-GLES",
-                "eglChooseConfig all fallbacks failed",
-            );
+            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglChooseConfig failed");
             e
         })?;
 
-        let surf = dpy.create_window_surface(cfg, win).map_err(|e| {
+        let surf = dpy.create_window_surface(cfg, &win).map_err(|e| {
             k1_sys::android_log(
                 k1_sys::LogLevel::Error,
                 "K1-GLES",
@@ -976,20 +978,8 @@ impl GlContext {
             e
         })?;
 
-        dpy.make_current(surf, ctx).map_err(|e| {
-            k1_sys::android_log(k1_sys::LogLevel::Error, "K1-GLES", "eglMakeCurrent failed");
-            e
-        })?;
-
-        let w = win.width();
-        let h = win.height();
-
-        unsafe {
-            glViewport(0, 0, w, h);
-            glClearColor(0.0, 0.0, 0.0, 1.0);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        }
+        // NOTE: We do NOT call make_current here.
+        // The render thread will call it on first frame.
 
         Ok(Self {
             display: dpy,
@@ -997,8 +987,13 @@ impl GlContext {
             context: ctx,
             width: w,
             height: h,
-            _window: win, // ← أضف هذا السطر
+            _window: win,
         })
+    }
+
+    // NEW: Call this from render thread before drawing
+    pub fn make_current(&self) -> Result<(), i32> {
+        self.display.make_current(self.surface, self.context)
     }
 
     pub fn swap_buffers(&self) -> Result<(), i32> {
@@ -1011,10 +1006,15 @@ impl GlContext {
         }
     }
 
+    pub fn update_viewport(&self, w: i32, h: i32) {
+        unsafe {
+            glViewport(0, 0, w, h);
+        }
+    }
+
     pub fn width(&self) -> i32 {
         self.width
     }
-
     pub fn height(&self) -> i32 {
         self.height
     }
