@@ -45,28 +45,32 @@ public class ZavoglesActivity extends Activity implements SurfaceHolder.Callback
     }
 
     @Override
-protected void onPause() {
-    super.onPause();
-    Log.i(TAG, "Activity onPause");
-    running = false;
-    if (renderThread != null) {
-        try { renderThread.join(100); } catch (InterruptedException e) { Log.e(TAG, "join interrupted", e); }
+    protected void onPause() {
+        super.onPause();
+        Log.i(TAG, "Activity onPause");
+        running = false;
+        if (renderThread != null) {
+            try {
+                renderThread.join(100);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "join interrupted", e);
+            }
+        }
+        nativeOnPause();
     }
-    nativeOnPause();
-}
 
-@Override
-protected void onResume() {
-    super.onResume();
-    nativeOnResume();
-    if (surfaceView.getHolder().getSurface() != null && surfaceView.getHolder().getSurface().isValid()) {
-        if (renderThread == null || !renderThread.isAlive()) {
-            running = true;
-            renderThread = new Thread(this::renderLoop);
-            renderThread.start();
+    @Override
+    protected void onResume() {
+        super.onResume();
+        nativeOnResume();
+        if (surfaceView.getHolder().getSurface() != null && surfaceView.getHolder().getSurface().isValid()) {
+            if (renderThread == null || !renderThread.isAlive()) {
+                running = true;
+                renderThread = new Thread(this::renderLoop);
+                renderThread.start();
+            }
         }
     }
-}
 
     @Override
     protected void onDestroy() {
@@ -101,22 +105,27 @@ protected void onResume() {
     }
 
     @Override
-public void surfaceDestroyed(SurfaceHolder holder) {
-    Log.i(TAG, "Surface destroyed");
-    running = false;
-    try {
-        renderThread.join();
-    } catch (InterruptedException e) {
-        Log.e(TAG, "Render thread interrupted", e);
+    public void surfaceDestroyed(SurfaceHolder holder) {
+        Log.i(TAG, "Surface destroyed");
+        running = false;
+        try {
+            renderThread.join();
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Render thread interrupted", e);
+        }
+        // لا تستدع nativeOnSurfaceDestroyed هنا
     }
-    // لا تستدع nativeOnSurfaceDestroyed هنا (أو اجعلها فارغة)
-}
 
     private void renderLoop() {
-    while (running) {
-        nativeOnFrame();
-        try { Thread.sleep(16); } catch (InterruptedException e) { break; }
+        while (running) {
+            nativeOnFrame();
+            try {
+                Thread.sleep(16);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+        // بعد الخروج من الحلقة، نظّف موارد GL على نفس الخيط
+        nativeOnRenderThreadExit();
     }
-    // بعد الخروج من الحلقة، نظّف موارد GL على نفس الخيط
-    nativeOnRenderThreadExit();
 }
