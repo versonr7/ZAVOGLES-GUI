@@ -925,6 +925,7 @@ pub struct GlContext {
     context: *mut c_void,
     width: i32,
     height: i32,
+    _window: k1_sys::NativeWindow, // <-- يجب أن يكون هنا
 }
 
 impl GlContext {

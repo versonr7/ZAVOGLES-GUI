@@ -26,6 +26,7 @@ public class ZavoglesActivity extends Activity implements SurfaceHolder.Callback
     public static native void nativeOnDestroy();
     public static native void nativeOnTouch(float x, float y, int action);
     public static native void nativeOnFrame();
+    public static native void nativeOnRenderThreadExit();
 
     private SurfaceView surfaceView;
     private boolean running = false;
@@ -57,13 +58,13 @@ protected void onPause() {
 @Override
 protected void onResume() {
     super.onResume();
-    Log.i(TAG, "Activity onResume");
     nativeOnResume();
-    // If surface already exists, restart render thread
     if (surfaceView.getHolder().getSurface() != null && surfaceView.getHolder().getSurface().isValid()) {
-        running = true;
-        renderThread = new Thread(this::renderLoop);
-        renderThread.start();
+        if (renderThread == null || !renderThread.isAlive()) {
+            running = true;
+            renderThread = new Thread(this::renderLoop);
+            renderThread.start();
+        }
     }
 }
 
@@ -100,25 +101,22 @@ protected void onResume() {
     }
 
     @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.i(TAG, "Surface destroyed");
-        running = false;
-        try {
-            renderThread.join();
-        } catch (InterruptedException e) {
-            Log.e(TAG, "Render thread interrupted", e);
-        }
-        nativeOnSurfaceDestroyed();
+public void surfaceDestroyed(SurfaceHolder holder) {
+    Log.i(TAG, "Surface destroyed");
+    running = false;
+    try {
+        renderThread.join();
+    } catch (InterruptedException e) {
+        Log.e(TAG, "Render thread interrupted", e);
     }
+    // لا تستدع nativeOnSurfaceDestroyed هنا (أو اجعلها فارغة)
+}
 
     private void renderLoop() {
-        while (running) {
-            nativeOnFrame();
-            try {
-                Thread.sleep(16); // ~60fps
-            } catch (InterruptedException e) {
-                break;
-            }
-        }
+    while (running) {
+        nativeOnFrame();
+        try { Thread.sleep(16); } catch (InterruptedException e) { break; }
     }
+    // بعد الخروج من الحلقة، نظّف موارد GL على نفس الخيط
+    nativeOnRenderThreadExit();
 }

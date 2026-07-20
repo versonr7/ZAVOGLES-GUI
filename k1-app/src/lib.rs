@@ -44,6 +44,26 @@ static BATCH: AtomicPtr<BatchRenderer<400, 600>> = AtomicPtr::new(core::ptr::nul
 
 // ===== JNI EXPORTS =====
 #[no_mangle]
+pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnRenderThreadExit(
+    _env: *mut c_void,
+    _class: *mut c_void,
+) {
+    unsafe {
+        // نسقط BatchRenderer أولًا (يحتاج سياق GL ساريًا)
+        if !BATCH.load(Ordering::Relaxed).is_null() {
+            core::ptr::drop_in_place(BATCH_STORAGE.as_mut_ptr());
+            BATCH.store(core::ptr::null_mut(), Ordering::Release);
+        }
+        // ثم نسقط GlContext (الذي بداخله NativeWindow وسياق EGL)
+        if !GL_CTX.load(Ordering::Relaxed).is_null() {
+            core::ptr::drop_in_place(GL_CTX_STORAGE.as_mut_ptr());
+            GL_CTX.store(core::ptr::null_mut(), Ordering::Release);
+        }
+        INITIALIZED.store(false, Ordering::Release);
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnCreate(
     _env: *mut c_void,
     _class: *mut c_void,
@@ -116,30 +136,7 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnSurfaceDes
     _class: *mut c_void,
 ) {
     logfox!("ZAVOGLES", "Native surfaceDestroyed");
-
-    unsafe {
-        RUNNING.store(false, Ordering::Release);
-
-        // انتظار انتهاء الإطار الحالي مع مهلة قصوى (ما يعادل إطارًا واحدًا)
-        let mut spins = 0;
-        while FRAME_LOCK.load(Ordering::Acquire) && spins < 10_000 {
-            core::hint::spin_loop();
-            spins += 1;
-        }
-
-        if INITIALIZED.load(Ordering::Acquire) {
-            if !BATCH.load(Ordering::Relaxed).is_null() {
-                core::ptr::drop_in_place(BATCH_STORAGE.as_mut_ptr());
-            }
-            if !GL_CTX.load(Ordering::Relaxed).is_null() {
-                core::ptr::drop_in_place(GL_CTX_STORAGE.as_mut_ptr());
-            }
-
-            BATCH.store(core::ptr::null_mut(), Ordering::Release);
-            GL_CTX.store(core::ptr::null_mut(), Ordering::Release);
-            INITIALIZED.store(false, Ordering::Release);
-        }
-    }
+    RUNNING.store(false, Ordering::Release);
 }
 
 #[no_mangle]
@@ -192,7 +189,7 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
     _env: *mut c_void,
     _class: *mut c_void,
 ) {
-    // قفل إعادة الدخول مع Acquire في الحالتين
+    // قفل إعادة الدخول
     if FRAME_LOCK
         .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
         .is_err()
@@ -207,28 +204,58 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
 
     unsafe {
         let ctx_ptr = GL_CTX.load(Ordering::Acquire);
-        let batch_ptr = BATCH.load(Ordering::Acquire);
-
-        if ctx_ptr.is_null() || batch_ptr.is_null() {
+        if ctx_ptr.is_null() {
             FRAME_LOCK.store(false, Ordering::Release);
             return;
         }
 
-        let ctx = &*ctx_ptr;
-        let batch = &mut *batch_ptr;
+        let ctx = &*ctx_ptr; // مؤشر للقراءة فقط
 
-        ctx.clear();
+        // --- التهيئة المؤجلة على خيط العرض ---
+        let batch_ptr = BATCH.load(Ordering::Acquire);
+        if batch_ptr.is_null() {
+            // تفعيل سياق EGL على هذا الخيط لأول مرة
+            if let Err(e) = ctx.make_current() {
+                logfox!("ZAVOGLES", "ERROR: make_current failed: {}", e);
+                FRAME_LOCK.store(false, Ordering::Release);
+                return;
+            }
+
+            // إعداد حالة OpenGL الأساسية
+            k1_gles::glClearColor(0.0, 0.0, 0.0, 1.0);
+            k1_gles::glEnable(k1_gles::GL_BLEND);
+            k1_gles::glBlendFunc(k1_gles::GL_SRC_ALPHA, k1_gles::GL_ONE_MINUS_SRC_ALPHA);
+
+            // إنشاء BatchRenderer على هذا الخيط لأول مرة
+            match BatchRenderer::<400, 600>::new() {
+                Ok(batch) => {
+                    BATCH_STORAGE.write(batch);
+                    BATCH.store(BATCH_STORAGE.as_mut_ptr(), Ordering::Release);
+                    logfox!("ZAVOGLES", "BatchRenderer created on render thread");
+                }
+                Err(e) => {
+                    logfox!("ZAVOGLES", "ERROR: BatchRenderer failed: {}", e);
+                    FRAME_LOCK.store(false, Ordering::Release);
+                    return;
+                }
+            }
+        }
+
+        // الآن المؤشر مضمون
+        let batch = &mut *BATCH.load(Ordering::Acquire);
 
         let w = WIDTH.load(Ordering::Acquire) as f32;
         let h = HEIGHT.load(Ordering::Acquire) as f32;
 
-        // Update viewport from render thread (safe — no concurrent access)
+        // تحديث المنفذ كل إطار
         ctx.update_viewport(w as i32, h as i32);
+        ctx.clear();
 
         let frame = FRAME_COUNT.fetch_add(1, Ordering::Relaxed);
         let time = (frame as f32) / 60.0;
         let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
 
+        // --- رسم الخلفية مع تموج ---
         batch.begin_frame();
         batch.draw_quad(
             Rect::from_coords(0.0, 0.0, w, h),
@@ -237,12 +264,16 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
         );
         batch.end_frame(&matrix, time, 10.0, 0.005);
 
+        // --- رسم واجهة XMB ---
         batch.begin_frame();
         draw_xmb(batch, w, h, time);
         batch.end_frame(&matrix, time, 0.0, 0.0);
 
-        if let Err(e) = ctx.swap_buffers() {
-            logfox!("ZAVOGLES", "ERROR: swap_buffers: {}", e);
+        // تبديل المخزن (فقط إذا كان RUNNING لا يزال صحيحاً)
+        if RUNNING.load(Ordering::Acquire) {
+            if let Err(e) = ctx.swap_buffers() {
+                logfox!("ZAVOGLES", "ERROR: swap_buffers: {}", e);
+            }
         }
     }
 
