@@ -473,7 +473,7 @@ void main() {
     pos.y += sin(pos.x * u_wave_freq + u_time) * u_wave_amp;
     gl_Position = u_matrix * vec4(pos, 0.0, 1.0);
     v_uv = a_uv;
-    v_color = a_color / 255.0;
+    v_color = a_color;   // ← FIXED: removed / 255.0
 }
 "#;
 
