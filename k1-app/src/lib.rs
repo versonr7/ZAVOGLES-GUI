@@ -254,7 +254,8 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
         batch.draw_quad(
             Rect::from_coords(0.0, 0.0, w, h),
             Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            Color::new(0.05, 0.05, 0.1, 1.0),
+            // استبدل Color::new(0.05, 0.05, 0.1, 1.0) بهذا:
+            Color::new(0.1, 0.2, 0.5, 1.0), // أزرق متوسط
         );
         batch.end_frame(&matrix, time, 10.0, 0.005);
 
@@ -286,7 +287,8 @@ fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
         batch.draw_quad(
             Rect::from_coords(x - 40.0, y - 20.0, 80.0, 40.0),
             Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            Color::new(0.0, 0.3, 0.6, alpha),
+            // استبدل Color::new(0.0, 0.3, 0.6, alpha) بهذا:
+            Color::new(0.2, 0.6, 1.0, alpha), // أزرق فاتح مع نبض شفافية
         );
     }
 }
