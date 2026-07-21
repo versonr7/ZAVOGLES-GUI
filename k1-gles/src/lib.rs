@@ -932,7 +932,7 @@ impl GlContext {
     // داخل impl GlContext في k1-gles/lib.rs
     pub fn setup_gl_state(&self) {
         unsafe {
-            glClearColor(0.0, 0.0, 0.0, 1.0);
+            glClearColor(1.0, 0.0, 0.0, 1.0); // أحمر فاقع للتشخيص
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
