@@ -199,6 +199,8 @@ extern "C" {
     pub fn glUniformMatrix4fv(location: c_int, count: c_int, transpose: c_int, value: *const f32);
     pub fn glGenBuffers(n: c_int, buffers: *mut c_int);
     pub fn glBindBuffer(target: c_int, buffer: c_int);
+    // في كتلة FFI الحقيقية والـ mock
+    pub fn glBindAttribLocation(program: c_int, index: c_int, name: *const c_char);
     pub fn glBufferData(target: c_int, size: isize, data: *const c_void, usage: c_int);
     pub fn glDeleteBuffers(n: c_int, buffers: *const c_int);
     pub fn glGenTextures(n: c_int, textures: *mut c_int);
@@ -236,6 +238,7 @@ pub mod gl_mock {
     static NEXT: AtomicI32 = AtomicI32::new(100);
 
     pub unsafe fn glViewport(_: c_int, _: c_int, _: c_int, _: c_int) {}
+    pub unsafe fn glBindAttribLocation(_: c_int, _: c_int, _: *const c_char) {}
     pub unsafe fn glUniform1f(_: c_int, _: f32) {}
     pub unsafe fn glClearColor(_: f32, _: f32, _: f32, _: f32) {}
     pub unsafe fn glClear(_: c_int) {}
@@ -483,7 +486,7 @@ varying vec2 v_uv;
 varying vec4 v_color;
 
 void main() {
-    gl_FragColor = v_color;
+    gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0); // FORCE YELLOW
 }
 "#;
 
@@ -493,6 +496,12 @@ pub struct Program {
 }
 
 impl Program {
+    pub fn bind_attrib_location(&self, index: c_int, name: &str) {
+        let name_ptr = name.as_bytes().as_ptr() as *const c_char;
+        unsafe {
+            glBindAttribLocation(self.handle, index, name_ptr);
+        }
+    }
     pub fn new() -> Result<Self, i32> {
         let h = unsafe { glCreateProgram() };
         if h == 0 {
@@ -690,6 +699,9 @@ impl<const MAX_VERTICES: usize, const MAX_INDICES: usize> BatchRenderer<MAX_VERT
         let vs = Shader::from_source(GL_VERTEX_SHADER, WAVE_VERTEX_SHADER)?;
         let fs = Shader::from_source(GL_FRAGMENT_SHADER, WAVE_FRAGMENT_SHADER)?;
         let prog = Program::new()?;
+        prog.bind_attrib_location(0, "a_pos");
+        prog.bind_attrib_location(1, "a_uv");
+        prog.bind_attrib_location(2, "a_color");
         prog.attach_shader(&vs);
         prog.attach_shader(&fs);
         prog.link()?;
