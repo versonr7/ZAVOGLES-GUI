@@ -185,7 +185,6 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
     _env: *mut c_void,
     _class: *mut c_void,
 ) {
-    // قفل إعادة الدخول
     if FRAME_LOCK
         .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
         .is_err()
@@ -205,22 +204,17 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
             return;
         }
 
-        let ctx = &*ctx_ptr; // مؤشر للقراءة فقط
+        let ctx = &mut *ctx_ptr;
 
-        // --- التهيئة المؤجلة على خيط العرض ---
         let batch_ptr = BATCH.load(Ordering::Acquire);
         if batch_ptr.is_null() {
-            // تفعيل سياق EGL على هذا الخيط لأول مرة
             if let Err(e) = ctx.make_current() {
                 logfox!("ZAVOGLES", "ERROR: make_current failed: {}", e);
                 FRAME_LOCK.store(false, Ordering::Release);
                 return;
             }
-
-            // إعداد حالة OpenGL الأساسية (آمن ويتم على خيط الرسم)
             ctx.setup_gl_state();
 
-            // إنشاء BatchRenderer على هذا الخيط لأول مرة
             match BatchRenderer::<400, 600>::new() {
                 Ok(batch) => {
                     BATCH_STORAGE.write(batch);
@@ -235,36 +229,53 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
             }
         }
 
-        // الآن المؤشر مضمون
         let batch = &mut *BATCH.load(Ordering::Acquire);
 
         let w = WIDTH.load(Ordering::Acquire) as f32;
         let h = HEIGHT.load(Ordering::Acquire) as f32;
 
-        // تحديث المنفذ كل إطار
         ctx.update_viewport(w as i32, h as i32);
         ctx.clear();
 
         let frame = FRAME_COUNT.fetch_add(1, Ordering::Relaxed);
         let time = (frame as f32) / 60.0;
+
         let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
 
-        // --- رسم الخلفية مع تموج ---
+        // --- خلفية بموجة مركزية (منطقة الموجة) ---
+        let wave_margin = h * 0.15; // هامش 15% من الأعلى والأسفل
         batch.begin_frame();
         batch.draw_quad(
-            Rect::from_coords(0.0, 0.0, w, h),
+            Rect::from_coords(0.0, wave_margin, w, h - wave_margin * 2.0),
             Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            // استبدل Color::new(0.05, 0.05, 0.1, 1.0) بهذا:
-            Color::new(0.1, 0.2, 0.5, 1.0), // أزرق متوسط
+            Color::new(0.05, 0.05, 0.15, 1.0), // أزرق غامق لمنطقة الموجة
         );
-        batch.end_frame(&matrix, time, 10.0, 0.005);
+        batch.end_frame(&matrix, time, 15.0, 0.008);
 
-        // --- رسم واجهة XMB ---
+        // --- شريط علوي ثابت (بدون موجة) ---
+        batch.begin_frame();
+        batch.draw_quad(
+            Rect::from_coords(0.0, 0.0, w, wave_margin),
+            Rect::from_coords(0.0, 0.0, 1.0, 1.0),
+            Color::new(0.02, 0.02, 0.08, 1.0), // أزرق داكن جدًا للشريط العلوي
+        );
+        batch.end_frame(&matrix, time, 0.0, 0.0);
+
+        // --- شريط سفلي ثابت (بدون موجة) ---
+        batch.begin_frame();
+        batch.draw_quad(
+            Rect::from_coords(0.0, h - wave_margin, w, wave_margin),
+            Rect::from_coords(0.0, 0.0, 1.0, 1.0),
+            Color::new(0.02, 0.02, 0.08, 1.0), // أزرق داكن جدًا للشريط السفلي
+        );
+        batch.end_frame(&matrix, time, 0.0, 0.0);
+
+        // --- واجهة XMB (أزرار التصنيفات) ---
         batch.begin_frame();
         draw_xmb(batch, w, h, time);
         batch.end_frame(&matrix, time, 0.0, 0.0);
 
-        // تبديل المخزن (فقط إذا كان RUNNING لا يزال صحيحاً)
+        // تبديل المخازن
         if RUNNING.load(Ordering::Acquire) {
             if let Err(e) = ctx.swap_buffers() {
                 logfox!("ZAVOGLES", "ERROR: swap_buffers: {}", e);
@@ -278,17 +289,24 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
 // ===== XMB UI =====
 fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
     let categories = ["Settings", "Games", "Media"];
-    let y = h * 0.2;
+
+    // أبعاد متجاوبة: التصنيفات في منتصف الارتفاع 20% من الأعلى
+    let y = h * 0.20;
+
+    // توزيع أفقي متجاوب
+    let start_x = w * 0.15;
+    let spacing = w * 0.25;
+    let button_w = w * 0.12; // عرض الزر يستجيب لعرض الشاشة
+    let button_h = h * 0.05; // ارتفاع الزر يستجيب لارتفاع الشاشة
 
     for (i, _cat) in categories.iter().enumerate() {
-        let x = w * 0.15 + (i as f32 * w * 0.25);
+        let x = start_x + (i as f32 * spacing);
         let alpha = 0.6 + libm::sinf(time + i as f32) * 0.2;
 
         batch.draw_quad(
-            Rect::from_coords(x - 40.0, y - 20.0, 80.0, 40.0),
+            Rect::from_coords(x - button_w / 2.0, y - button_h / 2.0, button_w, button_h),
             Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            // استبدل Color::new(0.0, 0.3, 0.6, alpha) بهذا:
-            Color::new(0.2, 0.6, 1.0, alpha), // أزرق فاتح مع نبض شفافية
+            Color::new(0.2, 0.6, 1.0, alpha),
         );
     }
 }
