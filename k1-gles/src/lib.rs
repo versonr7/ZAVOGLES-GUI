@@ -486,7 +486,7 @@ varying vec2 v_uv;
 varying vec4 v_color;
 
 void main() {
-    gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0); // FORCE YELLOW
+    gl_FragColor = v_color;
 }
 "#;
 
@@ -497,9 +497,11 @@ pub struct Program {
 
 impl Program {
     pub fn bind_attrib_location(&self, index: c_int, name: &str) {
-        let name_ptr = name.as_bytes().as_ptr() as *const c_char;
+        let mut name_buf = [0u8; 64];
+        let len = name.len().min(63);
+        name_buf[..len].copy_from_slice(name.as_bytes());
         unsafe {
-            glBindAttribLocation(self.handle, index, name_ptr);
+            glBindAttribLocation(self.handle, index, name_buf.as_ptr() as *const c_char);
         }
     }
     pub fn new() -> Result<Self, i32> {
@@ -535,8 +537,10 @@ impl Program {
         }
     }
     pub fn uniform_location(&self, name: &str) -> c_int {
-        let name_ptr = name.as_bytes().as_ptr() as *const c_char;
-        unsafe { glGetUniformLocation(self.handle, name_ptr) }
+        let mut name_buf = [0u8; 64]; // مصفوفة مليئة بالأصفار
+        let len = name.len().min(63);
+        name_buf[..len].copy_from_slice(name.as_bytes());
+        unsafe { glGetUniformLocation(self.handle, name_buf.as_ptr() as *const c_char) }
     }
     pub fn set_mat4(&self, loc: c_int, mat: &Mat4) {
         let arr = mat.to_array();
