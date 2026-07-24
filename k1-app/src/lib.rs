@@ -242,33 +242,26 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
 
         let matrix = Mat4::ortho(0.0, w, h, 0.0, -1.0, 1.0);
 
-        // --- خلفية بموجة مركزية (منطقة الموجة) ---
-        let wave_margin = h * 0.15; // هامش 15% من الأعلى والأسفل
+        // --- BACKGROUND (subtle animated gradient) ---
         batch.begin_frame();
+        let pulse = libm::sinf(time * 0.3) * 0.02;
         batch.draw_quad(
-            Rect::from_coords(0.0, wave_margin, w, h - wave_margin * 2.0),
+            Rect::from_coords(0.0, 0.0, w, h),
             Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            Color::new(0.05, 0.05, 0.15, 1.0), // أزرق غامق لمنطقة الموجة
-        );
-        batch.end_frame(&matrix, time, 15.0, 0.008);
-
-        // --- شريط علوي ثابت (بدون موجة) ---
-        batch.begin_frame();
-        batch.draw_quad(
-            Rect::from_coords(0.0, 0.0, w, wave_margin),
-            Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            Color::new(0.02, 0.02, 0.08, 1.0), // أزرق داكن جدًا للشريط العلوي
+            Color::new(0.03 + pulse, 0.04 + pulse, 0.08 + pulse * 2.0, 1.0),
         );
         batch.end_frame(&matrix, time, 0.0, 0.0);
 
-        // --- شريط سفلي ثابت (بدون موجة) ---
+        // --- WAVE BAND (separate, centered, wider) ---
         batch.begin_frame();
+        let wave_y = h * 0.30;
+        let wave_height = h * 0.25;
         batch.draw_quad(
-            Rect::from_coords(0.0, h - wave_margin, w, wave_margin),
+            Rect::from_coords(0.0, wave_y, w, wave_height),
             Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            Color::new(0.02, 0.02, 0.08, 1.0), // أزرق داكن جدًا للشريط السفلي
+            Color::new(0.1, 0.2, 0.4, 0.4), // Semi-transparent
         );
-        batch.end_frame(&matrix, time, 0.0, 0.0);
+        batch.end_frame(&matrix, time, 5.0, 0.015); // Visible wave
 
         // --- واجهة XMB (أزرار التصنيفات) ---
         batch.begin_frame();
@@ -289,24 +282,33 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
 // ===== XMB UI =====
 fn draw_xmb(batch: &mut BatchRenderer<400, 600>, w: f32, h: f32, time: f32) {
     let categories = ["Settings", "Games", "Media"];
+    let y = h * 0.55; // Lower on screen (XMB style)
+    let spacing = w * 0.30;
+    let start_x = w * 0.20;
 
-    // أبعاد متجاوبة: التصنيفات في منتصف الارتفاع 20% من الأعلى
-    let y = h * 0.20;
-
-    // توزيع أفقي متجاوب
-    let start_x = w * 0.15;
-    let spacing = w * 0.25;
-    let button_w = w * 0.12; // عرض الزر يستجيب لعرض الشاشة
-    let button_h = h * 0.05; // ارتفاع الزر يستجيب لارتفاع الشاشة
-
-    for (i, _cat) in categories.iter().enumerate() {
+    for (i, cat) in categories.iter().enumerate() {
         let x = start_x + (i as f32 * spacing);
-        let alpha = 0.6 + libm::sinf(time + i as f32) * 0.2;
+        let selected = i == 1; // Middle one selected
+        let alpha = if selected {
+            1.0
+        } else {
+            0.5 + libm::sinf(time + i as f32) * 0.1
+        };
+
+        let color = if selected {
+            Color::new(0.3, 0.6, 1.0, alpha) // Bright blue for selected
+        } else {
+            Color::new(0.1, 0.3, 0.6, alpha) // Darker for unselected
+        };
+
+        // Larger buttons
+        let bw = w * 0.18;
+        let bh = h * 0.08;
 
         batch.draw_quad(
-            Rect::from_coords(x - button_w / 2.0, y - button_h / 2.0, button_w, button_h),
+            Rect::from_coords(x - bw / 2.0, y - bh / 2.0, bw, bh),
             Rect::from_coords(0.0, 0.0, 1.0, 1.0),
-            Color::new(0.2, 0.6, 1.0, alpha),
+            color,
         );
     }
 }
