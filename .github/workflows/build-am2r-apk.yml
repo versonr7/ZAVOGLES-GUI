@@ -1,0 +1,42 @@
+name: Build AM2R APK
+
+on:
+  workflow_dispatch:  # يسمح لك بتشغيل البناء يدوياً من واجهة GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y unzip sed xdelta3 patchelf openjdk-8-jre \
+            libc6:i386 libncurses5:i386 libstdc++6:i386 libopenal1:i386
+
+      - name: Download AM2R-Autopatcher
+        run: |
+          git clone https://github.com/AM2R-Community-Developers/AM2R-Autopatcher-Linux.git
+          cd AM2R-Autopatcher-Linux
+          chmod +x patcher.sh
+
+      - name: Place AM2R_11.zip
+        run: |
+          # انسخ ملف اللعبة من الـ Secrets إلى مجلد الأداة
+          echo "${{ secrets.AM2R_11_ZIP_BASE64 }}" | base64 --decode > ./AM2R-Autopatcher-Linux/AM2R_11.zip
+
+      - name: Run patcher and build APK
+        run: |
+          cd AM2R-Autopatcher-Linux
+          # يشير الخيار --android إلى بناء نسخة للأندرويد
+          ./patcher.sh --android
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AM2R-APK
+          path: ./AM2R-Autopatcher-Linux/AM2R_*.APK
