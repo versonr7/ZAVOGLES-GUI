@@ -1,7 +1,7 @@
 name: Build AM2R APK
 
 on:
-  workflow_dispatch:  # يسمح لك بتشغيل البناء يدوياً من واجهة GitHub
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,8 +12,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
           sudo dpkg --add-architecture i386
+          # إضافة مستودع Ubuntu Focal للحصول على libncurses5:i386
+          echo "deb http://security.ubuntu.com/ubuntu focal-security main universe" | sudo tee /etc/apt/sources.list.d/focal-security.list
           sudo apt-get update
           sudo apt-get install -y unzip sed xdelta3 patchelf openjdk-8-jre \
             libc6:i386 libncurses5:i386 libstdc++6:i386 libopenal1:i386
@@ -26,13 +27,11 @@ jobs:
 
       - name: Place AM2R_11.zip
         run: |
-          # انسخ ملف اللعبة من الـ Secrets إلى مجلد الأداة
           echo "${{ secrets.AM2R_11_ZIP_BASE64 }}" | base64 --decode > ./AM2R-Autopatcher-Linux/AM2R_11.zip
 
       - name: Run patcher and build APK
         run: |
           cd AM2R-Autopatcher-Linux
-          # يشير الخيار --android إلى بناء نسخة للأندرويد
           ./patcher.sh --android
 
       - name: Upload APK as artifact
