@@ -48,9 +48,25 @@ jobs:
           fi
 
       - name: Run patcher and build APK
+        id: patcher
+        continue-on-error: true
         run: |
           cd AM2R-Autopatcher-Linux
           ./patcher.sh --os android
+
+      - name: Locate APK file
+        run: |
+          APK_PATH="./AM2R-Autopatcher-Linux/am2r_1.5.5/AndroidM2R_1.5.5-signed.apk"
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ APK found at: $APK_PATH"
+            ls -lh "$APK_PATH"
+          else
+            echo "❌ APK not found in expected location. Searching /tmp..."
+            find /tmp -name "*.apk" -type f -exec ls -lh {} \;
+            # محاولة البحث في أي مكان آخر
+            find . -name "*.apk" -type f -exec ls -lh {} \;
+            exit 1
+          fi
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
