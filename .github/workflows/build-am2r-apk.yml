@@ -6,11 +6,13 @@ on:
       am2r_url:
         description: 'رابط تحميل AM2R_11.zip'
         required: true
-        default: 'https://archive.org/download/am2r-1.1/AM2R_11.zip'
+        default: 'https://archive.org/download/am2r1.1/am2r-another-metroid-2-remake-1-1.zip'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,12 +31,29 @@ jobs:
           cd AM2R-Autopatcher-Linux
           chmod +x patcher.sh
 
-      - name: Download AM2R_11.zip
+      - name: Download and Verify AM2R_11.zip
         run: |
-          curl -L --fail -o ./AM2R-Autopatcher-Linux/AM2R_11.zip "${{ github.event.inputs.am2r_url }}"
-          ls -lh ./AM2R-Autopatcher-Linux/AM2R_11.zip
-          file ./AM2R-Autopatcher-Linux/AM2R_11.zip
-          unzip -t ./AM2R-Autopatcher-Linux/AM2R_11.zip
+          set -e
+          URL="${{ github.event.inputs.am2r_url }}"
+          TARGET="./AM2R-Autopatcher-Linux/AM2R_11.zip"
+
+          echo "⏳ Downloading from: $URL"
+          curl -L --fail --retry 3 --retry-delay 5 -o "$TARGET" "$URL"
+
+          echo "📦 File size:"
+          ls -lh "$TARGET"
+
+          echo "🔍 File type:"
+          file "$TARGET"
+
+          echo "✅ Testing zip integrity..."
+          if ! unzip -t "$TARGET" > /dev/null 2>&1; then
+            echo "❌ ERROR: Downloaded file is not a valid zip archive."
+            echo "Please check the URL and try again."
+            exit 1
+          fi
+
+          echo "🎉 AM2R_11.zip downloaded and verified successfully!"
 
       - name: Run patcher and build APK
         run: |
@@ -46,3 +65,4 @@ jobs:
         with:
           name: AM2R-APK
           path: ./AM2R-Autopatcher-Linux/AM2R_*.APK
+          if-no-files-found: error
