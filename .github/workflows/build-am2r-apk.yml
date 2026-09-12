@@ -32,7 +32,8 @@ jobs:
       - name: Run patcher and build APK
         run: |
           cd AM2R-Autopatcher-Linux
-          ./patcher.sh --android
+          chmod +x patcher.sh
+          ./patcher.sh --os android --am2rzip "${{ github.workspace }}/AM2R-Autopatcher-Linux/AM2R_11.zip"
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
