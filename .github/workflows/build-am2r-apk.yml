@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -31,29 +31,21 @@ jobs:
           cd AM2R-Autopatcher-Linux
           chmod +x patcher.sh
 
+      - name: Create output directory
+        run: |
+          mkdir -p ./AM2R-Autopatcher-Linux/am2r_1.5.5
+
       - name: Download and Verify AM2R_11.zip
         run: |
           set -e
           URL="${{ github.event.inputs.am2r_url }}"
           TARGET="./AM2R-Autopatcher-Linux/AM2R_11.zip"
-
-          echo "⏳ Downloading from: $URL"
           curl -L --fail --retry 3 --retry-delay 5 -o "$TARGET" "$URL"
-
-          echo "📦 File size:"
           ls -lh "$TARGET"
-
-          echo "🔍 File type:"
-          file "$TARGET"
-
-          echo "✅ Testing zip integrity..."
           if ! unzip -t "$TARGET" > /dev/null 2>&1; then
             echo "❌ ERROR: Downloaded file is not a valid zip archive."
-            echo "Please check the URL and try again."
             exit 1
           fi
-
-          echo "🎉 AM2R_11.zip downloaded and verified successfully!"
 
       - name: Run patcher and build APK
         run: |
@@ -64,5 +56,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AM2R-APK
-          path: ./AM2R-Autopatcher-Linux/AM2R_*.APK
-          if-no-files-found: error
+          path: ./AM2R-Autopatcher-Linux/am2r_1.5.5/AndroidM2R_1.5.5-signed.apk
+          if-no-files-found: error 
