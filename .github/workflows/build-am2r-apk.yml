@@ -2,6 +2,11 @@ name: Build AM2R APK
 
 on:
   workflow_dispatch:
+    inputs:
+      am2r_url:
+        description: 'رابط تحميل AM2R_11.zip'
+        required: true
+        default: 'https://archive.org/download/am2r-1.1/AM2R_11.zip'
 
 jobs:
   build:
@@ -13,7 +18,6 @@ jobs:
       - name: Install dependencies
         run: |
           sudo dpkg --add-architecture i386
-          # إضافة مستودع Ubuntu Focal للحصول على libncurses5:i386
           echo "deb http://security.ubuntu.com/ubuntu focal-security main universe" | sudo tee /etc/apt/sources.list.d/focal-security.list
           sudo apt-get update
           sudo apt-get install -y unzip sed xdelta3 patchelf openjdk-8-jre \
@@ -25,15 +29,17 @@ jobs:
           cd AM2R-Autopatcher-Linux
           chmod +x patcher.sh
 
-      - name: Place AM2R_11.zip
+      - name: Download AM2R_11.zip
         run: |
-          echo "${{ secrets.AM2R_11_ZIP_BASE64 }}" | base64 --decode > ./AM2R-Autopatcher-Linux/AM2R_11.zip
+          curl -L --fail -o ./AM2R-Autopatcher-Linux/AM2R_11.zip "${{ github.event.inputs.am2r_url }}"
+          ls -lh ./AM2R-Autopatcher-Linux/AM2R_11.zip
+          file ./AM2R-Autopatcher-Linux/AM2R_11.zip
+          unzip -t ./AM2R-Autopatcher-Linux/AM2R_11.zip
 
       - name: Run patcher and build APK
         run: |
           cd AM2R-Autopatcher-Linux
-          chmod +x patcher.sh
-          ./patcher.sh --os android --am2rzip "${{ github.workspace }}/AM2R-Autopatcher-Linux/AM2R_11.zip"
+          ./patcher.sh --os android
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
