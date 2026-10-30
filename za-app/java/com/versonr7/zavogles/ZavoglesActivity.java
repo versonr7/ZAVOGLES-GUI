@@ -63,13 +63,7 @@ public class ZavoglesActivity extends Activity implements SurfaceHolder.Callback
     protected void onResume() {
         super.onResume();
         nativeOnResume();
-        if (surfaceView.getHolder().getSurface() != null && surfaceView.getHolder().getSurface().isValid()) {
-            if (renderThread == null || !renderThread.isAlive()) {
-                running = true;
-                renderThread = new Thread(this::renderLoop);
-                renderThread.start();
-            }
-        }
+        // ✅ لا تبدأ الخيط هنا. اتركه فقط في surfaceCreated.
     }
 
     @Override
@@ -114,12 +108,16 @@ public void surfaceCreated(SurfaceHolder holder) {
     public void surfaceDestroyed(SurfaceHolder holder) {
         Log.i(TAG, "Surface destroyed");
         running = false;
-        try {
-            renderThread.join();
-        } catch (InterruptedException e) {
-            Log.e(TAG, "Render thread interrupted", e);
+        if (renderThread != null) {
+            try {
+                renderThread.join(); // ننتظر الخيط الحالي لين يوقف
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Render thread interrupted", e);
+            }
+            renderThread = null;
         }
-        // لا تستدع nativeOnSurfaceDestroyed هنا
+        // ✅ إخبار الجانب الأصلي أن السطح انتهى
+        nativeOnSurfaceDestroyed(); 
     }
 
     private void renderLoop() {

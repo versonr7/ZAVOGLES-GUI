@@ -421,9 +421,9 @@ impl EglDisplay {
 
 impl Drop for EglDisplay {
     fn drop(&mut self) {
-        unsafe {
-            eglTerminate(self.handle);
-        }
+        // ✅ لا تستدعِ eglTerminate هنا. 
+        // eglTerminate هي عملية على مستوى العملية وليست السياق.
+        // اتركها فارغة أو استدعِ eglDestroySurface/Context فقط.
     }
 }
 

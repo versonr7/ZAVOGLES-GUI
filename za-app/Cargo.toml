@@ -17,6 +17,7 @@ za-gles = { path = "../za-gles" }
 za-xmb = { path = "../za-xmb" }
 heapless = "0.9.3"
 libm = "0.2.16"
+libc = "0.2"
 
 [package.metadata.android]
 package = "com.versonr7.zavogles"

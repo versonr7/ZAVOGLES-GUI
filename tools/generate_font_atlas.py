@@ -35,29 +35,36 @@ def main():
         cell_x = col * cell_w
         cell_y = row * cell_h
 
-        # رسم الحرف في منتصف الخلية (بدون حسابات معقدة)
         bbox = draw.textbbox((0, 0), ch, font=font)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
-        draw_x = cell_x + (cell_w - tw) // 2 - bbox[0]
-        draw_y = cell_y + (cell_h - th) // 2 - bbox[1]
-        draw.text((draw_x, draw_y), ch, font=font, fill=(255, 255, 255, 255))
 
-        # ✅ الأطلس يستخدم الخلية كاملة: UV بسيط بدون قلب
-        uv_x = cell_x / ATLAS_SIZE
-        uv_y = cell_y / ATLAS_SIZE
-        uv_w = cell_w / ATLAS_SIZE
-        uv_h = cell_h / ATLAS_SIZE
-
-        # ✅ أبعاد المستطيل = حجم الخلية
-        width = float(cell_w)
-        height = float(cell_h)
-
-        # ✅ التقدم = عرض الخلية + مسافة صغيرة
-        if ch == ' ':
-            advance = float(cell_w * 0.5)  # مسافة أصغر
+        if tw <= 0 or th <= 0:
+            # مسافة أو حرف غير مرئي
+            draw.text((cell_x, cell_y), ch, font=font, fill=(255, 255, 255, 255))
+            uv_x, uv_y, uv_w, uv_h = 0.0, 0.0, 0.0, 0.0
+            width, height = 0.0, 0.0
+            advance = float(cell_w * 0.5) if ch == ' ' else float(cell_w)
         else:
-            advance = float(cell_w) + 1.0
+            # توسيط الحرف داخل الخلية
+            draw_x = cell_x + (cell_w - tw) // 2 - bbox[0]
+            draw_y = cell_y + (cell_h - th) // 2 - bbox[1]
+            draw.text((draw_x, draw_y), ch, font=font, fill=(255, 255, 255, 255))
+
+            # حساب إحداثيات UV الدقيقة للحرف فقط
+            actual_x = cell_x + (cell_w - tw) // 2
+            actual_y = cell_y + (cell_h - th) // 2
+
+            uv_x = actual_x / ATLAS_SIZE
+            uv_y = actual_y / ATLAS_SIZE
+            uv_w = tw / ATLAS_SIZE
+            uv_h = th / ATLAS_SIZE
+            
+            width = float(tw)
+            height = float(th)
+            
+            # المسافة بين الحروف = عرض الحرف + 2 بكسل
+            advance = float(tw + 2.0)
 
         glyph_data.append({
             'char': ch,
