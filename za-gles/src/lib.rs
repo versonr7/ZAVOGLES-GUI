@@ -421,7 +421,7 @@ impl EglDisplay {
 
 impl Drop for EglDisplay {
     fn drop(&mut self) {
-        // ✅ لا تستدعِ eglTerminate هنا. 
+        // ✅ لا تستدعِ eglTerminate هنا.
         // eglTerminate هي عملية على مستوى العملية وليست السياق.
         // اتركها فارغة أو استدعِ eglDestroySurface/Context فقط.
     }
@@ -1015,13 +1015,15 @@ pub struct GlContext {
 
 impl GlContext {
     // داخل impl GlContext في za-gles/lib.rs
-    pub fn setup_gl_state(&self) {
-        unsafe {
-            glClearColor(0.0, 0.0, 0.0, 1.0); // أسود (أو أي لون خلفية هادئ)
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        }
+    // في za-gles/src/lib.rs داخل GlContext::setup_gl_state
+pub fn setup_gl_state(&self) {
+    unsafe {
+        glClearColor(0.0, 0.0, 0.0, 1.0);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_TEXTURE_2D); // ✅ إضافة مهمة جداً
     }
+}
 
     // Take ownership of NativeWindow so it stays alive!
     pub fn from_window(win: za_sys::NativeWindow) -> Result<Self, i32> {

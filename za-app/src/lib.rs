@@ -44,7 +44,10 @@ static FRAME_LOCK: AtomicBool = AtomicBool::new(false);
 struct FrameLockGuard;
 impl FrameLockGuard {
     fn try_acquire() -> Option<Self> {
-        if FRAME_LOCK.compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire).is_ok() {
+        if FRAME_LOCK
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+            .is_ok()
+        {
             Some(FrameLockGuard)
         } else {
             None
@@ -118,16 +121,21 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnCreate(
 
 #[no_mangle]
 pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnSurfaceCreated(
-    _env: *mut c_void, _class: *mut c_void, surface: *mut c_void,
+    _env: *mut c_void,
+    _class: *mut c_void,
+    surface: *mut c_void,
 ) {
     logfox!("ZAVOGLES", "Native surfaceCreated");
     unsafe {
         let anw = za_sys::ANativeWindow_fromSurface(_env, surface);
-        if anw.is_null() { return; }
+        if anw.is_null() {
+            return;
+        }
 
         if let Some(win) = NativeWindow::from_raw(anw) {
-            let w = win.width(); let h = win.height();
-            
+            let w = win.width();
+            let h = win.height();
+
             // ✅ لا تلمس GL_CTX إذا كان موجوداً، فقط إذا كان null أنشئه
             if GL_CTX.load(Ordering::Acquire).is_null() {
                 match GlContext::from_window(win) {
@@ -217,7 +225,8 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnTouch(
 
 #[no_mangle]
 pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
-    _env: *mut c_void, _class: *mut c_void,
+    _env: *mut c_void,
+    _class: *mut c_void,
 ) {
     // ✅ استخدام الـ Guard
     let _guard = match FrameLockGuard::try_acquire() {
@@ -299,10 +308,10 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
                 Ok(font) => {
                     FONT_STORAGE.write(font);
                     FONT.store(FONT_STORAGE.as_mut_ptr(), Ordering::Release);
-                    logfox!("ZAVOGLES", "Font loaded OK");
+                    logfox!("ZAVOGLES", "✅ Font loaded successfully");
                 }
                 Err(e) => {
-                    logfox!("ZAVOGLES", "ERROR: Font init failed: {}", e);
+                    logfox!("ZAVOGLES", "❌ Font init failed: {}", e);
                 }
             }
         }

@@ -73,15 +73,14 @@ pub fn draw_text<const MAX_VERTICES: usize, const MAX_INDICES: usize>(
     batch.set_texture(&font.atlas);
     for c in text.chars() {
         if let Some(g) = font.glyph_for(c) {
-            // ✅ تصحيح المحاذاة باستخدام الـ offsets
+            // استخدام الإزاحات الصحيحة
             let draw_x = x + g.x_offset * scale;
             let draw_y = y + g.y_offset * scale;
             
             let rect = Rect::from_coords(draw_x, draw_y, g.width * scale, g.height * scale);
             
-            // ✅ قلب UV عمودياً لأن صورة الأطلس مولدة من الأعلى للأسفل
-            let uv_y_flipped = 1.0 - g.uv_y - g.uv_h;
-            let uv = Rect::from_coords(g.uv_x, uv_y_flipped, g.uv_w, g.uv_h);
+            // ✅ إزالة القلب نهائياً (استخدام g.uv_y مباشرة)
+            let uv = Rect::from_coords(g.uv_x, g.uv_y, g.uv_w, g.uv_h);
             
             batch.draw_quad(rect, uv, color);
             x += g.advance * scale;

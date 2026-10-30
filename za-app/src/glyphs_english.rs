@@ -1143,4 +1143,3 @@ pub const FONT_GLYPHS: [Option<Glyph>; 95] = [
         y_offset: 0e+00f32,
     }),
 ];
-   
