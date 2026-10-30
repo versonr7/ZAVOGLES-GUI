@@ -1,8 +1,8 @@
 #![no_std]
 #![allow(warnings)]
 
-mod glyphs_english;
-use glyphs_english::FONT_GLYPHS;
+mod glyphs_msdf;
+use glyphs_msdf::FONT_GLYPHS;
 
 use core::ffi::{c_int, c_void};
 use core::mem::MaybeUninit;
@@ -69,7 +69,7 @@ static mut BATCH_STORAGE: MaybeUninit<BatchRenderer<400, 600>> = MaybeUninit::un
 static BATCH: AtomicPtr<BatchRenderer<400, 600>> = AtomicPtr::new(core::ptr::null_mut());
 
 // --- Font atlas ---
-static FONT_ATLAS_BYTES: &[u8] = include_bytes!("../../assets/font_atlas.rgba");
+static FONT_ATLAS_BYTES: &[u8] = include_bytes!("../../assets/font_msdf.rgba");
 const FONT_ATLAS_W: i32 = 512;
 const FONT_ATLAS_H: i32 = 512;
 

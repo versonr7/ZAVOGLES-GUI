@@ -504,10 +504,18 @@ precision mediump float;
 varying vec2 v_uv;
 varying vec4 v_color;
 uniform sampler2D u_texture;
+uniform float u_px_range;
+
+float median(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
 
 void main() {
-    vec4 texel = texture2D(u_texture, v_uv);
-    gl_FragColor = v_color * texel;
+    vec3 msd = texture2D(u_texture, v_uv).rgb;
+    float sd = median(msd.r, msd.g, msd.b);
+    float screen_px_dist = u_px_range * (sd - 0.5);
+    float opacity = clamp(screen_px_dist + 0.5, 0.0, 1.0);
+    gl_FragColor = vec4(v_color.rgb, v_color.a * opacity);
 }
 "#;
 
@@ -842,7 +850,8 @@ impl<const MAX_VERTICES: usize, const MAX_INDICES: usize> BatchRenderer<MAX_VERT
             prog.set_mat4(prog.uniform_location("u_matrix"), matrix);
             prog.set_f32(prog.uniform_location("u_time"), time);
             prog.set_f32(prog.uniform_location("u_wave_amp"), wave_amp);
-            prog.set_f32(prog.uniform_location("u_wave_freq"), wave_freq);
+prog.set_f32(prog.uniform_location("u_wave_freq"), wave_freq);
+prog.set_f32(prog.uniform_location("u_px_range"), 1.5); // <-- أضف هذا السطر هنا
 
             // ===== الجديد: ربط النسيج =====
             prog.set_i32(prog.uniform_location("u_texture"), 0);
