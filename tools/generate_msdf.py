@@ -10,6 +10,7 @@ GLYPHS_PER_ROW = 16
 START_CHAR, END_CHAR = 32, 127
 OUTPUT_DIR = "assets"
 DISTANCE_RANGE = 4
+PADDING = 4  # <--- هامش أمان 4 بكسل لمنع القص
 
 def generate_msdf_for_glyph(char, font, cell_w, cell_h):
     img = Image.new("L", (cell_w, cell_h), 0)
@@ -26,14 +27,12 @@ def generate_msdf_for_glyph(char, font, cell_w, cell_h):
 
     arr = np.array(img, dtype=np.float32) / 255.0
     h, w = arr.shape
-    y, x = np.mgrid[0:h, 0:w]
-    inside = arr > 0.5
     
+    inside = arr > 0.5
     dist_in = np.where(inside, 1.0, 0.0) * DISTANCE_RANGE
     dist_out = np.where(inside, 0.0, 1.0) * DISTANCE_RANGE
     sdf = (dist_in - dist_out) / (2 * DISTANCE_RANGE) + 0.5
     
-    # 4 قنوات: RGB للمسافة، و A للشفافية
     msdf = np.stack([sdf, sdf, sdf, np.ones_like(sdf)], axis=-1)
     msdf_u8 = np.clip(msdf * 255, 0, 255).astype(np.uint8)
     return msdf_u8, tw, th
@@ -58,23 +57,35 @@ def main():
         atlas[cy:cy+cell_h, cx:cx+cell_w] = msdf_cell
 
         if tw > 0:
-            uv_x, uv_y = cx / ATLAS_SIZE, cy / ATLAS_SIZE
-            uv_w, uv_h = tw / ATLAS_SIZE, th / ATLAS_SIZE
+            # حساب الـ UV مع الهامش
+            uv_x = (cx + (cell_w - tw) // 2 - PADDING) / ATLAS_SIZE
+            uv_y = (cy + (cell_h - th) // 2 - PADDING) / ATLAS_SIZE
+            uv_w = (tw + 2 * PADDING) / ATLAS_SIZE
+            uv_h = (th + 2 * PADDING) / ATLAS_SIZE
+            
+            # الحجم الكلي مع الهامش
+            width = float(tw + 2 * PADDING)
+            height = float(th + 2 * PADDING)
+            
+            # إزاحة عكسية عشان النص ما يتزحلق
+            x_offset = -float(PADDING)
+            y_offset = -float(PADDING)
         else:
             uv_x, uv_y, uv_w, uv_h = 0.0, 0.0, 0.0, 0.0
+            width, height = 0.0, 0.0
+            x_offset, y_offset = 0.0, 0.0
 
         advance = float(tw + 2.0) if tw > 0 else cell_w * 0.5
 
         glyph_data.append({
             'char': ch, 'uv_x': uv_x, 'uv_y': uv_y, 'uv_w': uv_w, 'uv_h': uv_h,
-            'width': float(tw), 'height': float(th), 'advance': advance
+            'width': width, 'height': height, 'advance': advance,
+            'x_offset': x_offset, 'y_offset': y_offset
         })
 
-    # 1. حفظ الصورة الخام (RGBA)
     with open(os.path.join(OUTPUT_DIR, "font_msdf.rgba"), "wb") as f:
         f.write(atlas.tobytes())
     
-    # 2. توليد ملف Rust مباشرة
     rust_path = os.path.join(OUTPUT_DIR, "..", "za-app", "src", "glyphs_msdf.rs")
     with open(rust_path, "w") as f:
         f.write("// Auto-generated MSDF Glyphs\nuse za_gles::font::Glyph;\n\n")
@@ -83,7 +94,7 @@ def main():
             f.write(f"    // {repr(g['char'])}\n    Some(Glyph {{\n")
             f.write(f"        uv_x: {g['uv_x']:.6}f32, uv_y: {g['uv_y']:.6}f32, uv_w: {g['uv_w']:.6}f32, uv_h: {g['uv_h']:.6}f32,\n")
             f.write(f"        width: {g['width']:.1f}f32, height: {g['height']:.1f}f32,\n")
-            f.write(f"        advance: {g['advance']:.1f}f32, x_offset: 0.0, y_offset: 0.0,\n")
+            f.write(f"        advance: {g['advance']:.1f}f32, x_offset: {g['x_offset']:.1f}, y_offset: {g['y_offset']:.1f},\n")
             f.write("    }),\n")
         f.write("];\n")
 

@@ -851,7 +851,7 @@ impl<const MAX_VERTICES: usize, const MAX_INDICES: usize> BatchRenderer<MAX_VERT
             prog.set_f32(prog.uniform_location("u_time"), time);
             prog.set_f32(prog.uniform_location("u_wave_amp"), wave_amp);
 prog.set_f32(prog.uniform_location("u_wave_freq"), wave_freq);
-prog.set_f32(prog.uniform_location("u_px_range"), 1.5); // <-- أضف هذا السطر هنا
+prog.set_f32(prog.uniform_location("u_px_range"), 4.0); // <-- ضع هذا السطر هنا
 
             // ===== الجديد: ربط النسيج =====
             prog.set_i32(prog.uniform_location("u_texture"), 0);
