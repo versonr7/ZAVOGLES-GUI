@@ -332,8 +332,6 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
             }
         }
     }
-
-    FRAME_LOCK.store(false, Ordering::Release);
 }
 
 // ===== PANIC HANDLER =====
@@ -374,6 +372,5 @@ mod tests {
         assert!(FRAME_LOCK
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
             .is_err());
-        FRAME_LOCK.store(false, Ordering::Release);
     }
 }
