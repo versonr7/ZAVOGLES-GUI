@@ -215,7 +215,7 @@ use gl_mock::*;
 // ==================== EGL Types ====================
 pub struct EglDisplay {
     handle: *mut c_void,
-    pub config: *mut c_void, // ✅ إضافة config هنا
+    pub config: *mut c_void,
 }
 
 impl EglDisplay {
@@ -337,17 +337,25 @@ varying vec2 v_uv;
 varying vec4 v_color;
 uniform sampler2D u_texture;
 uniform float u_px_range;
+uniform float u_is_msdf; // 1.0 للنصوص، 0.0 للصور العادية
 
 float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
 
 void main() {
-    vec3 msd = texture2D(u_texture, v_uv).rgb;
-    float sd = median(msd.r, msd.g, msd.b);
-    float screen_px_dist = u_px_range * (sd - 0.5);
-    float opacity = clamp(screen_px_dist + 0.5, 0.0, 1.0);
-    gl_FragColor = vec4(v_color.rgb, v_color.a * opacity);
+    vec4 tex_color = texture2D(u_texture, v_uv);
+    
+    if (u_is_msdf > 0.5) {
+        // وضع MSDF (للنصوص)
+        float sd = median(tex_color.r, tex_color.g, tex_color.b);
+        float screen_px_dist = u_px_range * (sd - 0.5);
+        float opacity = clamp(screen_px_dist + 0.5, 0.0, 1.0);
+        gl_FragColor = vec4(v_color.rgb, v_color.a * opacity);
+    } else {
+        // الوضع العادي (للألعاب)
+        gl_FragColor = v_color * tex_color;
+    }
 }
 "#;
 
@@ -513,6 +521,7 @@ pub struct BatchRenderer<const MAX_VERTICES: usize, const MAX_INDICES: usize> {
     program: Option<Program>,
     white_texture: Option<Texture>,
     current_texture: c_int,
+    pub is_msdf: bool, // ✅ الحقل الجديد
 }
 
 impl<const MAX_VERTICES: usize, const MAX_INDICES: usize> BatchRenderer<MAX_VERTICES, MAX_INDICES> {
@@ -563,6 +572,7 @@ impl<const MAX_VERTICES: usize, const MAX_INDICES: usize> BatchRenderer<MAX_VERT
             program: Some(prog),
             white_texture: Some(white_tex),
             current_texture: white_handle,
+            is_msdf: false, // ✅ القيمة الافتراضية: صور عادية
         })
     }
     pub fn begin_frame(&mut self) {
@@ -600,6 +610,7 @@ impl<const MAX_VERTICES: usize, const MAX_INDICES: usize> BatchRenderer<MAX_VERT
             prog.set_f32(prog.uniform_location("u_wave_amp"), wave_amp);
             prog.set_f32(prog.uniform_location("u_wave_freq"), wave_freq);
             prog.set_f32(prog.uniform_location("u_px_range"), 4.0);
+            prog.set_f32(prog.uniform_location("u_is_msdf"), if self.is_msdf { 1.0 } else { 0.0 });
             prog.set_i32(prog.uniform_location("u_texture"), 0);
             unsafe {
                 glActiveTexture(GL_TEXTURE0);
@@ -683,7 +694,7 @@ pub struct GlContext {
     context: *mut c_void,
     width: i32,
     height: i32,
-    window: za_sys::NativeWindow, // ✅ تخزين NativeWindow
+    window: za_sys::NativeWindow,
 }
 
 impl GlContext {
@@ -715,7 +726,7 @@ impl GlContext {
             e
         })?;
         
-        dpy.config = cfg; // ✅ تخزين الـ config
+        dpy.config = cfg;
 
         let surf = dpy.create_window_surface(cfg, &win).map_err(|e| {
             za_sys::android_log(za_sys::LogLevel::Error, "za-GLES", "eglCreateWindowSurface failed");
@@ -737,34 +748,25 @@ impl GlContext {
         })
     }
 
-    // ✅ دالة تحديث السطح دون تدمير السياق
     pub fn update_surface(&mut self, new_win: za_sys::NativeWindow) -> Result<(), i32> {
         unsafe {
-            // 1. إلغاء ربط السطح الحالي
             let _ = self.display.make_current(EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-            // 2. تدمير السطح القديم
             if !self.surface.is_null() {
                 eglDestroySurface(self.display.handle(), self.surface);
             }
-
-            // 3. إنشاء سطح جديد
             let new_surf = eglCreateWindowSurface(
                 self.display.handle(),
                 self.display.config,
                 new_win.as_raw() as *mut c_void,
                 core::ptr::null(),
             );
-
             if new_surf.is_null() {
                 return Err(eglGetError());
             }
-
-            // 4. تحديث الحقول
             self.surface = new_surf;
             self.width = new_win.width();
             self.height = new_win.height();
-            self.window = new_win; // NativeWindow القديم سيتم تحريره تلقائياً
+            self.window = new_win;
         }
         Ok(())
     }
@@ -799,7 +801,6 @@ impl Drop for GlContext {
             if !self.context.is_null() {
                 eglDestroyContext(self.display.handle(), self.context);
             }
-            // NativeWindow سيتم تحريره تلقائياً هنا
         }
     }
 }

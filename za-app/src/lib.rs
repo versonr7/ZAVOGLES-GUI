@@ -317,13 +317,14 @@ pub extern "C" fn Java_com_versonr7_zavogles_ZavoglesActivity_nativeOnFrame(
         }
 
         // --- XMB TEXT ---
-        let font_ptr_final = FONT.load(Ordering::Acquire);
-        if !font_ptr_final.is_null() {
-            let font = &*font_ptr_final;
-            batch.begin_frame();
-            za_xmb::draw_xmb_text(batch, &XMB_STATE, font, w, h);
-            batch.end_frame(&matrix, time, 0.0, 0.0);
-        }
+let font_ptr_final = FONT.load(Ordering::Acquire);
+if !font_ptr_final.is_null() {
+    let font = &*font_ptr_final;
+    batch.begin_frame();
+    batch.is_msdf = true; // <--- أضف هذا السطر هنا
+    za_xmb::draw_xmb_text(batch, &XMB_STATE, font, w, h);
+    batch.end_frame(&matrix, time, 0.0, 0.0);
+}
 
         // --- SWAP ---
         if RUNNING.load(Ordering::Acquire) {
